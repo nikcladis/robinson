@@ -1,25 +1,65 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
 import { z } from "zod";
 import AdminLayout from "../../layout";
+import type { Hotel } from "@/models/hotel";
 import { 
-  createHotelSchema, 
-  initialCreateHotelData,
+  updateHotelSchema, 
+  initialUpdateHotelData,
   validateFormData
 } from "@/validations/hotel.validation";
 
 // Define a type from the Zod schema
-type HotelFormData = z.infer<typeof createHotelSchema>;
+type HotelFormData = z.infer<typeof updateHotelSchema>;
 
-export default function NewHotelPage() {
+export default function EditHotelPage() {
   const router = useRouter();
-  const [formData, setFormData] = useState<HotelFormData>(initialCreateHotelData);
+  const params = useParams();
+  const hotel_id = params.hotel_id as string;
+  
+  const [formData, setFormData] = useState<HotelFormData>(initialUpdateHotelData);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [amenityInput, setAmenityInput] = useState("");
+
+  useEffect(() => {
+    async function fetchHotel() {
+      try {
+        const response = await fetch(`/api/hotels/${hotel_id}`);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch hotel: ${response.statusText}`);
+        }
+        
+        const data = await response.json() as Hotel;
+        
+        setFormData({
+          name: data.name || "",
+          description: data.description || "",
+          address: data.address || "",
+          city: data.city || "",
+          country: data.country || "",
+          postalCode: data.postalCode || "",
+          starRating: data.starRating || 0,
+          amenities: data.amenities || [],
+          imageUrl: data.imageUrl || "",
+        });
+        
+        setIsLoading(false);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "An error occurred");
+        setIsLoading(false);
+      }
+    }
+    
+    if (hotel_id) {
+      fetchHotel();
+    }
+  }, [hotel_id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -61,7 +101,7 @@ export default function NewHotelPage() {
   };
 
   const validateForm = (): boolean => {
-    const result = validateFormData(createHotelSchema, formData);
+    const result = validateFormData(updateHotelSchema, formData);
     setValidationErrors(result.errors);
     return result.isValid;
   };
@@ -78,8 +118,8 @@ export default function NewHotelPage() {
     setError(null);
     
     try {
-      const response = await fetch("/api/hotels", {
-        method: "POST",
+      const response = await fetch(`/api/hotels/${hotel_id}`, {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
@@ -88,7 +128,7 @@ export default function NewHotelPage() {
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create hotel");
+        throw new Error(errorData.error || "Failed to update hotel");
       }
       
       router.push("/admin/hotels");
@@ -100,12 +140,24 @@ export default function NewHotelPage() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <AdminLayout>
+        <div className="container mx-auto py-8 px-4 sm:px-6">
+          <div className="text-center p-10">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="container mx-auto py-8 px-4 sm:px-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold">Add New Hotel</h1>
-          <p className="text-gray-600 mt-2">Create a new hotel in your system</p>
+          <h1 className="text-3xl font-bold">Edit Hotel</h1>
+          <p className="text-gray-600 mt-2">Update hotel information</p>
         </div>
 
         {error && (
@@ -337,7 +389,7 @@ export default function NewHotelPage() {
                 disabled={isSubmitting}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:opacity-50"
               >
-                {isSubmitting ? 'Creating...' : 'Create Hotel'}
+                {isSubmitting ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </form>

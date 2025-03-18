@@ -3,17 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AdminLayout from "../layout";
-
-interface Hotel {
-  id: string;
-  name: string;
-  city: string;
-  country: string;
-  address: string;
-  rating: number;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { Hotel } from "@/models/hotel";
 
 export default function HotelsManagementPage() {
   const router = useRouter();
@@ -84,13 +74,15 @@ export default function HotelsManagementPage() {
           </button>
         </div>
 
+        {error && (
+          <div className="bg-red-50 border border-red-200 p-4 rounded-md text-red-600 mb-6">
+            {error}
+          </div>
+        )}
+
         {isLoading ? (
           <div className="text-center p-10">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          </div>
-        ) : error ? (
-          <div className="bg-red-50 border border-red-200 p-4 rounded-md text-red-600">
-            {error}
           </div>
         ) : hotels.length === 0 ? (
           <div className="text-center p-10 bg-gray-50 rounded-md">
@@ -102,7 +94,7 @@ export default function HotelsManagementPage() {
               <thead className="bg-gray-50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
+                    Hotel
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Location
@@ -122,7 +114,24 @@ export default function HotelsManagementPage() {
                 {hotels.map((hotel) => (
                   <tr key={hotel.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{hotel.name}</div>
+                      <div className="flex items-center">
+                        {hotel.imageUrl ? (
+                          <img 
+                            src={hotel.imageUrl} 
+                            alt={hotel.name}
+                            className="h-10 w-10 rounded-full object-cover mr-3"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = "https://via.placeholder.com/40?text=Hotel";
+                            }}
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                            <span className="text-gray-500 text-sm">No img</span>
+                          </div>
+                        )}
+                        <div className="text-sm font-medium text-gray-900">{hotel.name}</div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{hotel.city}, {hotel.country}</div>
@@ -130,7 +139,7 @@ export default function HotelsManagementPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {Array.from({ length: Math.floor(hotel.rating) }).map((_, i) => (
+                        {Array.from({ length: Math.floor(hotel.starRating) }).map((_, i) => (
                           <span key={i} className="text-yellow-400">★</span>
                         ))}
                       </div>

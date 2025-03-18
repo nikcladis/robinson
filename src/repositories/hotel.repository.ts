@@ -37,58 +37,65 @@ export class HotelRepository {
     limit?: number;
     offset?: number;
   }) {
-    const hotels = await prisma.hotel.findMany({
-      where: {
-        ...(params?.city && { city: params.city }),
-        ...(params?.country && { country: params.country }),
-        ...(params?.minRating && { starRating: { gte: params.minRating } }),
-        ...(params?.maxPrice && {
+    try {
+      console.log('Repository getAllHotels called with params:', params);
+      const hotels = await prisma.hotel.findMany({
+        where: {
+          ...(params?.city && { city: params.city }),
+          ...(params?.country && { country: params.country }),
+          ...(params?.minRating && { starRating: { gte: params.minRating } }),
+          ...(params?.maxPrice && {
+            rooms: {
+              some: {
+                price: { lte: params.maxPrice },
+              },
+            },
+          }),
+        },
+        include: {
           rooms: {
-            some: {
-              price: { lte: params.maxPrice },
+            select: {
+              id: true,
+              hotelId: true,
+              roomNumber: true,
+              roomType: true,
+              price: true,
+              capacity: true,
+              available: true,
+              amenities: true,
+              imageUrl: true,
+              createdAt: true,
+              updatedAt: true,
             },
           },
-        }),
-      },
-      include: {
-        rooms: {
-          select: {
-            id: true,
-            hotelId: true,
-            roomNumber: true,
-            roomType: true,
-            price: true,
-            capacity: true,
-            available: true,
-            amenities: true,
-            imageUrl: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        },
-        reviews: {
-          select: {
-            id: true,
-            userId: true,
-            hotelId: true,
-            rating: true,
-            comment: true,
-            createdAt: true,
-            updatedAt: true,
-            user: {
-              select: {
-                firstName: true,
-                lastName: true,
+          reviews: {
+            select: {
+              id: true,
+              userId: true,
+              hotelId: true,
+              rating: true,
+              comment: true,
+              createdAt: true,
+              updatedAt: true,
+              user: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                },
               },
             },
           },
         },
-      },
-      take: params?.limit || 10,
-      skip: params?.offset || 0,
-    });
+        take: params?.limit || undefined,
+        skip: params?.offset || 0,
+      });
 
-    return hotels;
+      console.log(`Retrieved ${hotels.length} hotels from database`);
+      return hotels;
+    } catch (error) {
+      console.error('Error in getAllHotels repository method:', error);
+      throw error;
+    }
   }
 
   /**

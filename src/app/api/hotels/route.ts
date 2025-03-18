@@ -6,11 +6,11 @@ import { requireAdmin, handleError } from "@/middleware";
 import {
   searchParamsSchema,
   createHotelSchema,
-  updateHotelSchema,
 } from "@/validations/hotel.validation";
 
 export async function GET(request: Request) {
   try {
+    console.log('API GET /api/hotels called');
     const { searchParams } = new URL(request.url);
 
     // Validate and parse query parameters
@@ -25,12 +25,15 @@ export async function GET(request: Request) {
 
     // Remove null values
     const params = Object.fromEntries(
-      Object.entries(parsedParams).filter(([v]) => v !== null)
+      Object.entries(parsedParams).filter(([_, v]) => v !== null)
     );
-
+    
+    console.log('API GET /api/hotels with params:', params);
     const hotels = await HotelController.getAllHotels(params);
+    console.log(`API GET /api/hotels returning ${hotels.length} hotels`);
     return NextResponse.json(hotels);
   } catch (error) {
+    console.error('Error in API GET /api/hotels:', error);
     return handleError(error, "Failed to fetch hotels");
   }
 }
@@ -49,55 +52,5 @@ export async function POST(request: Request) {
     return NextResponse.json(hotel);
   } catch (error) {
     return handleError(error, "Failed to create hotel");
-  }
-}
-
-export async function PUT(request: Request) {
-  try {
-    // Check admin authorization
-    const authError = await requireAdmin();
-    if (authError) return authError;
-
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
-
-    if (!id) {
-      return NextResponse.json(
-        { error: "Hotel ID is required" },
-        { status: 400 }
-      );
-    }
-
-    // Validate request body
-    const body = await request.json();
-    const validatedBody = updateHotelSchema.parse(body);
-
-    const hotel = await HotelController.updateHotel(id, validatedBody);
-    return NextResponse.json(hotel);
-  } catch (error) {
-    return handleError(error, "Failed to update hotel");
-  }
-}
-
-export async function DELETE(request: Request) {
-  try {
-    // Check admin authorization
-    const authError = await requireAdmin();
-    if (authError) return authError;
-
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
-
-    if (!id) {
-      return NextResponse.json(
-        { error: "Hotel ID is required" },
-        { status: 400 }
-      );
-    }
-
-    await HotelController.deleteHotel(id);
-    return new NextResponse(null, { status: 204 });
-  } catch (error) {
-    return handleError(error, "Failed to delete hotel");
   }
 }
