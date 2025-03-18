@@ -55,7 +55,7 @@ export default function UsersManagementPage() {
       
       // Update user role in the state
       setUsers(users.map(user => 
-        user.id === userId ? { ...user, role: newRole as any } : user
+        user.id === userId ? { ...user, role: newRole as "CUSTOMER" | "ADMIN" } : user
       ));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update user role');

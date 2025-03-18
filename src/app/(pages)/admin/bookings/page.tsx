@@ -76,7 +76,7 @@ export default function BookingsManagementPage() {
       
       // Update booking status in the state
       setBookings(bookings.map(booking => 
-        booking.id === id ? { ...booking, status: status as any } : booking
+        booking.id === id ? { ...booking, status: status as "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" } : booking
       ));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update booking status');

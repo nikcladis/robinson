@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import AdminLayout from "../../layout";
 
 interface HotelFormData {
@@ -24,9 +24,10 @@ const initialFormData: HotelFormData = {
   images: [""],
 };
 
-export default function EditHotelPage({ params }: { params: { hotelId: string } }) {
+export default function EditHotelPage() {
   const router = useRouter();
-  const { hotelId } = params;
+  const params = useParams();
+  const hotelId = params.hotelId as string;
   
   const [formData, setFormData] = useState<HotelFormData>(initialFormData);
   const [isLoading, setIsLoading] = useState(true);
@@ -66,7 +67,9 @@ export default function EditHotelPage({ params }: { params: { hotelId: string } 
       }
     }
     
-    fetchHotel();
+    if (hotelId) {
+      fetchHotel();
+    }
   }, [hotelId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {

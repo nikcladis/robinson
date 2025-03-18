@@ -1,5 +1,3 @@
-"use server";
-
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/helpers/prisma";
 import { requireAdmin } from "@/middleware";
@@ -7,19 +5,33 @@ import { UserRole } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 
+// Define Prisma error type
+interface PrismaError {
+  code?: string;
+  meta?: Record<string, unknown>;
+  message: string;
+}
+
+// Define route params type according to Next.js standards
+type RouteParams = {
+  params: {
+    userId: string;
+  };
+};
+
 /**
  * PATCH handler for updating a user (admin only)
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: RouteParams
 ) {
   try {
     // Check if the user is admin
     const adminCheck = await requireAdmin();
     if (adminCheck) return adminCheck; // Returns 401 if not admin
 
-    // Extract userId from params (must use await)
+    // Extract userId from params
     const userId = params.userId;
     
     const body = await request.json();
@@ -51,7 +63,7 @@ export async function PATCH(
     console.error("Error updating user:", error);
     
     // Handle case where user doesn't exist
-    if ((error as any).code === 'P2025') {
+    if ((error as PrismaError).code === 'P2025') {
       return NextResponse.json(
         { error: "User not found" },
         { status: 404 }
@@ -69,15 +81,15 @@ export async function PATCH(
  * DELETE handler for deleting a user (admin only)
  */
 export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: { userId: string } }
+  request: NextRequest,
+  { params }: RouteParams
 ) {
   try {
     // Check if the user is admin
     const adminCheck = await requireAdmin();
     if (adminCheck) return adminCheck; // Returns 401 if not admin
 
-    // Extract userId from params (must use await)
+    // Extract userId from params
     const userId = params.userId;
 
     // Check if trying to delete own account
@@ -99,7 +111,7 @@ export async function DELETE(
     console.error("Error deleting user:", error);
     
     // Handle case where user doesn't exist
-    if ((error as any).code === 'P2025') {
+    if ((error as PrismaError).code === 'P2025') {
       return NextResponse.json(
         { error: "User not found" },
         { status: 404 }
