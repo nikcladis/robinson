@@ -1,36 +1,113 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Robinson Hotel Reservation System
+
+A modern hotel reservation platform built with Next.js, TypeScript, Prisma, and PostgreSQL. This application allows users to browse hotels, view room availability, make bookings, and leave reviews.
+
+## Features
+
+- **User Authentication**: Secure login and registration system with role-based access (Customer/Admin)
+- **Hotel Listings**: Browse and search available hotels with detailed information
+- **Room Management**: View available rooms with pricing, amenities, and availability
+- **Booking System**: Make reservations with date selection and special requests
+- **User Reviews**: Leave ratings and reviews for hotels
+- **Admin Dashboard**: Manage hotels, rooms, bookings, and users
+- **Responsive Design**: Optimized for all device sizes
+
+## Tech Stack
+
+- **Frontend**: Next.js 15, React 19, TailwindCSS 4
+- **Backend**: Next.js API Routes
+- **Database**: PostgreSQL with Prisma ORM
+- **Authentication**: NextAuth.js
+- **Form Handling**: React Hook Form with Zod validation
+- **Date Handling**: Date-fns and React DatePicker
+
+## Prerequisites
+
+- Node.js 18+ and npm/yarn
+- PostgreSQL database
 
 ## Getting Started
 
-First, run the development server:
+1. **Clone the repository**
+
+```bash
+git clone https://github.com/yourusername/robinson.git
+cd robinson
+```
+
+2. **Install dependencies**
+
+```bash
+npm install
+```
+
+3. **Set up environment variables**
+
+Create a `.env` file in the root directory with the following variables:
+
+```
+DATABASE_URL="postgresql://username:password@localhost:5432/hotel_reservation"
+NEXTAUTH_SECRET="your-secret-key"
+NEXTAUTH_URL="http://localhost:3000"
+```
+
+4. **Set up the database**
+
+```bash
+npm run prisma:migrate:dev
+npm run prisma:seed
+```
+
+5. **Start the development server**
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+6. **Open your browser**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Navigate to [http://localhost:3000](http://localhost:3000) to see the application.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Available Scripts
 
-## Learn More
+- `npm run dev` - Start the development server with Turbopack
+- `npm run build` - Build the application for production
+- `npm run start` - Start the production server
+- `npm run lint` - Run ESLint to check code quality
+- `npm run prisma:studio` - Open Prisma Studio to manage database
+- `npm run prisma:generate` - Generate Prisma client
+- `npm run prisma:migrate:dev` - Create and apply migrations
+- `npm run prisma:migrate:reset` - Reset database and apply migrations
+- `npm run prisma:db:push` - Push schema changes to database
+- `npm run prisma:seed` - Seed the database with initial data
 
-To learn more about Next.js, take a look at the following resources:
+## Project Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+├── prisma/            # Database schema and migrations
+├── public/            # Static assets
+├── src/
+│   ├── app/           # App router pages and layouts
+│   ├── controllers/   # Business logic controllers
+│   ├── errors/        # Error handling utilities
+│   ├── helpers/       # Helper functions
+│   ├── middleware/    # Request middleware
+│   ├── models/        # Data models
+│   ├── repositories/  # Data access layer
+│   ├── services/      # Service layer
+│   ├── shared/        # Shared components and utilities
+│   ├── types/         # TypeScript type definitions
+│   └── validations/   # Input validation schemas
+└── scripts/           # Utility scripts
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## License
 
-## Deploy on Vercel
+This project is licensed under the MIT License.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Acknowledgements
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Next.js](https://nextjs.org/) - The React Framework
+- [Prisma](https://www.prisma.io/) - Next-generation ORM
+- [TailwindCSS](https://tailwindcss.com/) - Utility-first CSS framework
+- [NextAuth.js](https://next-auth.js.org/) - Authentication for Next.js
