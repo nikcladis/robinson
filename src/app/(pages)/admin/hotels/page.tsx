@@ -14,7 +14,6 @@ export default function HotelsManagementPage() {
   useEffect(() => {
     async function fetchHotels() {
       try {
-        console.log('Fetching hotels...');
         const response = await fetch('/api/hotels');
         
         if (!response.ok) {
@@ -22,11 +21,9 @@ export default function HotelsManagementPage() {
         }
         
         const data = await response.json();
-        console.log('Hotels data received:', data);
         setHotels(data);
         setIsLoading(false);
       } catch (err) {
-        console.error('Error fetching hotels:', err);
         setError(err instanceof Error ? err.message : 'An error occurred');
         setIsLoading(false);
       }
