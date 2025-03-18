@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <style>
+    .animate-float {
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-20px); }
+    }
+  </style>
+  
+  <!-- Background Elements -->
+  <circle cx="250" cy="250" r="200" fill="#f3f4f6" />
+  <path d="M50,250 Q250,100 450,250" stroke="#e5e7eb" fill="none" stroke-width="2" />
+  <path d="M50,280 Q250,130 450,280" stroke="#e5e7eb" fill="none" stroke-width="2" />
+  
+  <!-- Building Elements -->
+  <g class="animate-float">
+    <!-- Main Building -->
+    <rect x="150" y="180" width="200" height="160" fill="#3b82f6" rx="8" />
+    
+    <!-- Windows -->
+    <rect x="170" y="200" width="40" height="40" fill="#fff" rx="4" />
+    <rect x="230" y="200" width="40" height="40" fill="#fff" rx="4" />
+    <rect x="290" y="200" width="40" height="40" fill="#fff" rx="4" />
+    
+    <rect x="170" y="260" width="40" height="40" fill="#fff" rx="4" />
+    <rect x="230" y="260" width="40" height="40" fill="#fff" rx="4" />
+    <rect x="290" y="260" width="40" height="40" fill="#fff" rx="4" />
+    
+    <!-- Door -->
+    <rect x="220" y="280" width="60" height="60" fill="#1e40af" rx="4" />
+    
+    <!-- Roof -->
+    <path d="M140,180 L250,120 L360,180" fill="#2563eb" />
+    
+    <!-- 404 Text -->
+    <text x="250" y="220" font-family="Arial" font-size="24" fill="#fff" text-anchor="middle" font-weight="bold">404</text>
+  </g>
+  
+  <!-- Clouds -->
+  <g class="animate-float" style="animation-delay: -1.5s">
+    <circle cx="100" cy="150" r="20" fill="#fff" />
+    <circle cx="120" cy="150" r="25" fill="#fff" />
+    <circle cx="140" cy="150" r="20" fill="#fff" />
+  </g>
+  
+  <g class="animate-float" style="animation-delay: -1s">
+    <circle cx="360" cy="120" r="20" fill="#fff" />
+    <circle cx="380" cy="120" r="25" fill="#fff" />
+    <circle cx="400" cy="120" r="20" fill="#fff" />
+  </g>
+</svg> 

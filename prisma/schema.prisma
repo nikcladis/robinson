@@ -1,0 +1,126 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model representing customers and administrators
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  firstName     String
+  lastName      String
+  phoneNumber   String?
+  role          UserRole  @default(CUSTOMER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  bookings      Booking[]
+  reviews       Review[]
+}
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+}
+
+// Hotel model representing available hotels
+model Hotel {
+  id          String    @id @default(uuid())
+  name        String
+  description String    @db.Text
+  address     String
+  city        String
+  country     String
+  postalCode  String
+  imageUrl    String?
+  starRating  Int       @default(3)
+  amenities   String[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  rooms       Room[]
+  reviews     Review[]
+}
+
+// Room model for individual rooms within hotels
+model Room {
+  id          String    @id @default(uuid())
+  hotelId     String
+  roomNumber  String
+  roomType    RoomType
+  price       Float
+  capacity    Int       @default(2)
+  available   Boolean   @default(true)
+  amenities   String[]
+  imageUrl    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  hotel       Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  bookings    Booking[]
+
+  @@unique([hotelId, roomNumber])
+}
+
+enum RoomType {
+  SINGLE
+  DOUBLE
+  TWIN
+  SUITE
+  DELUXE
+  PENTHOUSE
+}
+
+// Booking model for room reservations
+model Booking {
+  id              String    @id @default(uuid())
+  userId          String
+  roomId          String
+  checkInDate     DateTime
+  checkOutDate    DateTime
+  numberOfGuests  Int
+  totalPrice      Float
+  status          BookingStatus @default(PENDING)
+  paymentStatus   PaymentStatus @default(UNPAID)
+  specialRequests String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room            Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+// Review model for hotel reviews
+model Review {
+  id        String   @id @default(uuid())
+  userId    String
+  hotelId   String
+  rating    Int
+  comment   String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hotel     Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, hotelId])
+}
