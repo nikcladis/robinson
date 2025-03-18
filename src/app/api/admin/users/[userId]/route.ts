@@ -12,19 +12,12 @@ interface PrismaError {
   message: string;
 }
 
-// Define route params type according to Next.js standards
-type RouteParams = {
-  params: {
-    userId: string;
-  };
-};
-
 /**
  * PATCH handler for updating a user (admin only)
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: RouteParams
+  { params }: { params: { userId: string } }
 ) {
   try {
     // Check if the user is admin
@@ -82,7 +75,7 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: RouteParams
+  { params }: { params: { userId: string } }
 ) {
   try {
     // Check if the user is admin
