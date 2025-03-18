@@ -20,6 +20,7 @@ export class HotelController {
     limit?: number;
     offset?: number;
   }): Promise<TransformedHotel[]> {
+    console.log('Controller getAllHotels called with params:', params);
     // Validate search parameters
     const validation = HotelValidator.validateSearchParams(params || {});
     if (!validation.isValid) {
@@ -27,7 +28,10 @@ export class HotelController {
     }
 
     const hotels = await HotelRepository.getAllHotels(params);
-    return hotels.map((hotel) => this.transformHotel(hotel));
+    console.log(`Controller received ${hotels.length} hotels from repository`);
+    const transformedHotels = hotels.map((hotel) => this.transformHotel(hotel));
+    console.log(`Controller transformed ${transformedHotels.length} hotels`);
+    return transformedHotels;
   }
 
   /**

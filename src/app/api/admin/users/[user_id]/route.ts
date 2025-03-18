@@ -17,7 +17,7 @@ interface PrismaError {
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: { user_id: string } }
 ) {
   try {
     // Check if the user is admin
@@ -25,7 +25,7 @@ export async function PATCH(
     if (adminCheck) return adminCheck; // Returns 401 if not admin
 
     // Extract userId from params
-    const userId = params.userId;
+    const user_id = params.user_id;
     
     const body = await request.json();
     const { role } = body;
@@ -40,7 +40,7 @@ export async function PATCH(
 
     // Update user
     const updatedUser = await prisma.user.update({
-      where: { id: userId },
+      where: { id: user_id },
       data: { role: role as UserRole },
       select: {
         id: true,
@@ -75,7 +75,7 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: { user_id: string } }
 ) {
   try {
     // Check if the user is admin
@@ -83,11 +83,11 @@ export async function DELETE(
     if (adminCheck) return adminCheck; // Returns 401 if not admin
 
     // Extract userId from params
-    const userId = params.userId;
+    const user_id = params.user_id;
 
     // Check if trying to delete own account
     const session = await getServerSession(authOptions);
-    if (session?.user?.id === userId) {
+    if (session?.user?.id === user_id) {
       return NextResponse.json(
         { error: "Cannot delete your own account" },
         { status: 400 }
@@ -96,7 +96,7 @@ export async function DELETE(
 
     // Delete user
     await prisma.user.delete({
-      where: { id: userId },
+      where: { id: user_id },
     });
 
     return NextResponse.json({ success: true });

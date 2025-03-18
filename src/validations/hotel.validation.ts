@@ -22,6 +22,25 @@ export const createHotelSchema = baseHotelSchema;
 // Schema for updating a hotel (all fields optional)
 export const updateHotelSchema = baseHotelSchema.partial();
 
+// Base initial data for hotel forms
+const initialHotelData = {
+  name: "",
+  description: "",
+  address: "",
+  city: "",
+  country: "",
+  postalCode: "",
+  starRating: 0,
+  amenities: [],
+  imageUrl: "",
+};
+
+// Initial data for create hotel form
+export const initialCreateHotelData: z.infer<typeof createHotelSchema> = initialHotelData;
+
+// Initial data for update hotel form
+export const initialUpdateHotelData: z.infer<typeof updateHotelSchema> = initialHotelData;
+
 // Schema for hotel search parameters
 export const searchParamsSchema = z.object({
   city: z.string().nullable().optional(),
@@ -31,6 +50,28 @@ export const searchParamsSchema = z.object({
   limit: z.coerce.number().min(1).max(100).nullable().optional(),
   offset: z.coerce.number().min(0).nullable().optional(),
 });
+
+// Helper for handling zod validation in forms
+export const validateFormData = <T extends z.ZodSchema>(
+  schema: T,
+  data: unknown
+): { isValid: boolean; errors: Record<string, string> } => {
+  try {
+    schema.parse(data);
+    return { isValid: true, errors: {} };
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      const errors: Record<string, string> = {};
+      err.errors.forEach(error => {
+        if (error.path[0]) {
+          errors[error.path[0].toString()] = error.message;
+        }
+      });
+      return { isValid: false, errors };
+    }
+    return { isValid: false, errors: { _form: "Invalid data format" } };
+  }
+};
 
 type ValidationResult =
   | {
