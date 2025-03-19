@@ -1,140 +1,203 @@
-import { BookingValidator } from "@/validations/booking.validation";
-import { BookingRepository } from "@/repositories/booking.repository";
-import { Booking } from "@/models";
+import { NextRequest, NextResponse } from "next/server";
+import { BookingValidator, updateBookingStatusSchema } from "@/validations/booking.validation";
+import { BookingService } from "@/services/booking.service";
+import { z } from "zod";
 
 /**
- * Controller for managing booking-related business logic and flow
+ * BookingController handles all booking-related operations in the admin panel
  */
 export class BookingController {
   /**
-   * Retrieves all bookings for a user
-   * @param userId - ID of the user
-   * @returns Array of user's bookings
-   * @throws Error if fetching fails
+   * Get all bookings with optional filtering
    */
-  static async getUserBookings(userId: string): Promise<Booking[]> {
-    return BookingRepository.getUserBookings(userId);
+  static async getAllBookings(): Promise<NextResponse> {
+    try {
+      const bookings = await BookingService.getAllBookings();
+      // Serialize to remove any Prisma-specific properties or methods
+      return NextResponse.json(JSON.parse(JSON.stringify(bookings)));
+    } catch (error) {
+      console.error("Error fetching all bookings:", error);
+      return NextResponse.json(
+        { error: "Failed to fetch bookings" },
+        { status: 500 }
+      );
+    }
   }
 
   /**
-   * Creates a new booking with validation and business rules
-   * @param bookingData - Data for the new booking
-   * @returns Created booking or error
+   * Get bookings for a specific user
    */
-  static async createBooking(bookingData: {
+  static async getUserBookings(userId: string): Promise<NextResponse> {
+    try {
+      if (!userId) {
+        return NextResponse.json(
+          { error: "User ID is required" },
+          { status: 400 }
+        );
+      }
+
+      const bookings = await BookingService.getUserBookings(userId);
+      // Serialize to remove any Prisma-specific properties or methods
+      return NextResponse.json(JSON.parse(JSON.stringify(bookings)));
+    } catch (error) {
+      console.error(`Error fetching bookings for user ${userId}:`, error);
+      return NextResponse.json(
+        { error: "Failed to fetch user bookings" },
+        { status: 500 }
+      );
+    }
+  }
+
+  /**
+   * Create a new booking
+   */
+  static async createBooking(data: {
     userId: string;
     roomId: string;
     checkInDate: string;
     checkOutDate: string;
     numberOfGuests: number;
     totalPrice: number;
-  }) {
-    // 1. Validate required fields
-    const fieldsValidation =
-      BookingValidator.validateRequiredFields(bookingData);
-    if (!fieldsValidation.isValid) {
-      throw new Error(fieldsValidation.errors.join(", "));
+    status?: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
+    paymentStatus?: "PAID" | "UNPAID" | "REFUNDED";
+  }): Promise<any> {
+    try {
+      // Validate booking data
+      const validationResult = BookingValidator.validateCreateBooking(data);
+      if (!validationResult.isValid) {
+        return NextResponse.json(
+          { error: "Invalid booking data", details: validationResult.errors },
+          { status: 400 }
+        );
+      }
+      
+      console.log("BookingController.createBooking: Validation passed, creating booking");
+      
+      // Create the booking in the database
+      const booking = await BookingService.createBooking(data);
+      
+      console.log("BookingController.createBooking: Booking created successfully", booking.id);
+      
+      // Serialize to remove any Prisma-specific properties or methods
+      return JSON.parse(JSON.stringify(booking));
+    } catch (error) {
+      console.error("Error creating booking:", error);
+      throw error;
     }
+  }
 
-    // 2. Validate room availability
-    const availabilityValidation =
-      await BookingValidator.validateRoomAvailability(
-        bookingData.roomId,
-        bookingData.checkInDate,
-        bookingData.checkOutDate
+  /**
+   * Get a single booking by ID
+   */
+  static async getBookingById(booking_id: string): Promise<NextResponse> {
+    try {
+      if (!booking_id) {
+        return NextResponse.json(
+          { error: "Booking ID is required" },
+          { status: 400 }
+        );
+      }
+
+      const booking = await BookingService.getBookingById(booking_id);
+
+      if (!booking) {
+        return NextResponse.json(
+          { error: "Booking not found" },
+          { status: 404 }
+        );
+      }
+
+      // Serialize to remove any Prisma-specific properties or methods
+      return NextResponse.json(JSON.parse(JSON.stringify(booking)));
+    } catch (error) {
+      console.error(`Error fetching booking ${booking_id}:`, error);
+      return NextResponse.json(
+        { error: "Failed to fetch booking" },
+        { status: 500 }
       );
-    if (!availabilityValidation.isValid) {
-      throw new Error(availabilityValidation.errors.join(", "));
     }
-
-    // 3. Apply business rules
-    const checkIn = new Date(bookingData.checkInDate);
-    const checkOut = new Date(bookingData.checkOutDate);
-
-    // 3.1 Ensure check-in is not in the past
-    if (checkIn < new Date()) {
-      throw new Error("Check-in date cannot be in the past");
-    }
-
-    // 3.2 Ensure check-out is after check-in
-    if (checkOut <= checkIn) {
-      throw new Error("Check-out date must be after check-in date");
-    }
-
-    // 4. Create the booking
-    return BookingRepository.createBooking({
-      userId: bookingData.userId,
-      roomId: bookingData.roomId,
-      checkInDate: checkIn,
-      checkOutDate: checkOut,
-      numberOfGuests: bookingData.numberOfGuests,
-      totalPrice: bookingData.totalPrice,
-    });
   }
 
   /**
-   * Retrieves a specific booking
-   * Ensures the booking belongs to the user
+   * Update a booking's status
    */
-  static async getBooking(bookingId: string, userId: string) {
-    const booking = await BookingRepository.getBookingById(bookingId);
+  static async updateBookingStatus(booking_id: string, data: unknown): Promise<NextResponse> {
+    try {
+      if (!booking_id) {
+        return NextResponse.json(
+          { error: "Booking ID is required" },
+          { status: 400 }
+        );
+      }
 
-    if (!booking) {
-      throw new Error("Booking not found");
+      // Validate the request data
+      const validationResult = BookingValidator.validateStatusUpdate(data);
+      if (!validationResult.isValid) {
+        return NextResponse.json(
+          { error: "Invalid booking status", details: validationResult.errors },
+          { status: 400 }
+        );
+      }
+
+      // Check if booking exists
+      const bookingExists = await BookingService.bookingExists(booking_id);
+
+      if (!bookingExists) {
+        return NextResponse.json(
+          { error: "Booking not found" },
+          { status: 404 }
+        );
+      }
+
+      // Type assertion is safe here because we've already validated the data
+      const typedData = data as z.infer<typeof updateBookingStatusSchema>;
+
+      // Update booking status
+      const updatedBooking = await BookingService.updateBookingStatus(booking_id, typedData.status);
+
+      // Serialize to remove any Prisma-specific properties or methods
+      return NextResponse.json(JSON.parse(JSON.stringify(updatedBooking)));
+    } catch (error) {
+      console.error(`Error updating booking ${booking_id}:`, error);
+      return NextResponse.json(
+        { error: "Failed to update booking status" },
+        { status: 500 }
+      );
     }
-
-    if (booking.userId !== userId) {
-      throw new Error("Unauthorized access to booking");
-    }
-
-    return booking;
   }
 
   /**
-   * Cancels a booking
-   * Validates cancellation rules and updates status
+   * Delete a booking
    */
-  static async cancelBooking(bookingId: string, userId: string) {
-    // 1. Get and validate booking
-    const booking = await this.getBooking(bookingId, userId);
+  static async deleteBooking(booking_id: string): Promise<NextResponse> {
+    try {
+      if (!booking_id) {
+        return NextResponse.json(
+          { error: "Booking ID is required" },
+          { status: 400 }
+        );
+      }
 
-    // 2. Check if booking can be cancelled
-    if (booking.status === "CANCELLED") {
-      throw new Error("Booking is already cancelled");
+      // Check if booking exists
+      const bookingExists = await BookingService.bookingExists(booking_id);
+
+      if (!bookingExists) {
+        return NextResponse.json(
+          { error: "Booking not found" },
+          { status: 404 }
+        );
+      }
+
+      // Delete the booking
+      await BookingService.deleteBooking(booking_id);
+
+      return NextResponse.json({ success: true }, { status: 200 });
+    } catch (error) {
+      console.error(`Error deleting booking ${booking_id}:`, error);
+      return NextResponse.json(
+        { error: "Failed to delete booking" },
+        { status: 500 }
+      );
     }
-
-    // 3. Check if booking is in the future
-    const now = new Date();
-    const checkInDate = new Date(booking.checkInDate);
-
-    if (checkInDate < now) {
-      throw new Error("Cannot cancel past or current bookings");
-    }
-
-    // 4. Cancel the booking
-    return BookingRepository.updateBooking(bookingId, {
-      status: "CANCELLED",
-      paymentStatus: "REFUNDED",
-    });
-  }
-
-  /**
-   * Calculates the total price for a booking
-   * @param roomPrice - Price per night
-   * @param checkInDate - Check-in date
-   * @param checkOutDate - Check-out date
-   * @returns Total price for the stay
-   */
-  static calculateTotalPrice(
-    roomPrice: number,
-    checkInDate: string,
-    checkOutDate: string
-  ): number {
-    const startDate = new Date(checkInDate);
-    const endDate = new Date(checkOutDate);
-    const numberOfNights = Math.ceil(
-      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    return roomPrice * numberOfNights;
   }
 }
