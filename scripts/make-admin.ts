@@ -1,6 +1,12 @@
-import { prisma } from "@/helpers/prisma";
+import { getPrismaClientSync } from "@/helpers/prisma";
 
 async function makeAdmin(email: string) {
+  const prisma = await getPrismaClientSync();
+  if (!prisma) {
+    console.error("Could not connect to the database");
+    process.exit(1);
+  }
+  
   try {
     const user = await prisma.user.update({
       where: { email },
