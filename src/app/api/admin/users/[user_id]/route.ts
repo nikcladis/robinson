@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/helpers/prisma";
+import { getPrismaClientSync } from "@/helpers/prisma";
 import { requireAdmin } from "@/middleware";
 import { UserRole } from "@prisma/client";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/options";
+import { getAuthOptions } from "@/app/api/auth/[...nextauth]/options";
 
 // Define Prisma error type
 interface PrismaError {
@@ -26,6 +26,14 @@ export async function PATCH(
 
     // Extract userId from params
     const user_id = params.user_id;
+    
+    const prisma = await getPrismaClientSync();
+    if (!prisma) {
+      return NextResponse.json(
+        { error: "Database connection error" },
+        { status: 500 }
+      );
+    }
     
     const body = await request.json();
     const { role } = body;
@@ -85,7 +93,16 @@ export async function DELETE(
     // Extract userId from params
     const user_id = params.user_id;
 
+    const prisma = await getPrismaClientSync();
+    if (!prisma) {
+      return NextResponse.json(
+        { error: "Database connection error" },
+        { status: 500 }
+      );
+    }
+
     // Check if trying to delete own account
+    const authOptions = await getAuthOptions();
     const session = await getServerSession(authOptions);
     if (session?.user?.id === user_id) {
       return NextResponse.json(

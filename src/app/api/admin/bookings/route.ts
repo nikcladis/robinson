@@ -1,8 +1,8 @@
 "use server";
 
 import { NextResponse } from "next/server";
-import { prisma } from "@/helpers/prisma";
 import { requireAdmin } from "@/middleware";
+import { BookingController } from "@/controllers/booking.controller";
 
 /**
  * GET handler for retrieving all bookings (admin only)
@@ -13,35 +13,10 @@ export async function GET() {
     const adminCheck = await requireAdmin();
     if (adminCheck) return adminCheck; // Returns 401 if not admin
 
-    const bookings = await prisma.booking.findMany({
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        room: {
-          include: {
-            hotel: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    return NextResponse.json(bookings);
+    // Use the controller to get all bookings
+    return BookingController.getAllBookings();
   } catch (error) {
-    console.error("Error fetching admin bookings:", error);
+    console.error("Error in GET /api/admin/bookings:", error);
     return NextResponse.json(
       { error: "Failed to fetch bookings" },
       { status: 500 }

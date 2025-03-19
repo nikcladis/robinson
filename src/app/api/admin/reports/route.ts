@@ -1,7 +1,7 @@
 "use server";
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/helpers/prisma";
+import { getPrismaClientSync } from "@/helpers/prisma";
 import { requireAdmin } from "@/middleware";
 import { BookingStatus } from "@prisma/client";
 import { startOfWeek, startOfMonth, startOfYear, subMonths } from 'date-fns';
@@ -14,6 +14,14 @@ export async function GET(request: NextRequest) {
     // Check if the user is admin
     const adminCheck = await requireAdmin();
     if (adminCheck) return adminCheck; // Returns 401 if not admin
+    
+    const prisma = await getPrismaClientSync();
+    if (!prisma) {
+      return NextResponse.json(
+        { error: "Database connection error" },
+        { status: 500 }
+      );
+    }
 
     // Parse query parameters
     const url = new URL(request.url);
