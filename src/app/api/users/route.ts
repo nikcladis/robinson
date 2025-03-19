@@ -1,7 +1,7 @@
 "use server";
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/helpers/prisma";
+import { getPrismaClientSync } from "@/helpers/prisma";
 import * as bcrypt from "bcrypt";
 import { z } from "zod";
 
@@ -18,6 +18,14 @@ const userSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    const prisma = await getPrismaClientSync();
+    if (!prisma) {
+      return NextResponse.json(
+        { error: "Database connection error" },
+        { status: 500 }
+      );
+    }
+    
     const body = await request.json();
 
     // Validate the request body

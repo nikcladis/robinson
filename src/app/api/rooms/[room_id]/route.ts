@@ -1,19 +1,24 @@
 "use server";
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/helpers/prisma";
+import { getPrismaClientSync } from "@/helpers/prisma";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { room_id: string } }
+  context: { params: { room_id: string } }
 ) {
-  const room_id = params.room_id;
+  const { room_id } = context.params;
 
   if (!room_id) {
     return new NextResponse("Room ID is required", { status: 400 });
   }
 
   try {
+    const prisma = await getPrismaClientSync();
+    if (!prisma) {
+      return new NextResponse("Database connection error", { status: 500 });
+    }
+    
     const room = await prisma.room.findUnique({
       where: {
         id: room_id,
