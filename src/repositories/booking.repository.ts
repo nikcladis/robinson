@@ -1,11 +1,19 @@
-import { prisma } from "@/helpers/prisma";
-import { Prisma } from "@prisma/client";
+import { getPrismaClientSync } from "@/helpers/prisma";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { DatabaseError } from "@/errors/database.error";
 
 /**
  * Repository for handling booking-related database operations
  */
 export class BookingRepository {
+  /**
+   * Get a Prisma client instance
+   * @returns Promise resolving to a Prisma client or null
+   */
+  private static async getPrisma(): Promise<PrismaClient | null> {
+    return await getPrismaClientSync();
+  }
+
   /**
    * Handles database operation errors
    */
@@ -36,6 +44,9 @@ export class BookingRepository {
    */
   static async getUserBookings(userId: string) {
     try {
+      const prisma = await this.getPrisma();
+      if (!prisma) throw new Error("Database client not available");
+      
       return await prisma.booking.findMany({
         where: {
           userId,
@@ -78,6 +89,9 @@ export class BookingRepository {
     totalPrice: number;
   }) {
     try {
+      const prisma = await this.getPrisma();
+      if (!prisma) throw new Error("Database client not available");
+      
       return await prisma.booking.create({
         data: {
           userId: data.userId,
@@ -115,6 +129,9 @@ export class BookingRepository {
    */
   static async getBookingById(bookingId: string) {
     try {
+      const prisma = await this.getPrisma();
+      if (!prisma) throw new Error("Database client not available");
+      
       return await prisma.booking.findUnique({
         where: {
           id: bookingId,
@@ -151,6 +168,9 @@ export class BookingRepository {
     }>
   ) {
     try {
+      const prisma = await this.getPrisma();
+      if (!prisma) throw new Error("Database client not available");
+      
       return await prisma.booking.update({
         where: {
           id: bookingId,
@@ -186,6 +206,9 @@ export class BookingRepository {
     checkOutDate: Date
   ) {
     try {
+      const prisma = await this.getPrisma();
+      if (!prisma) throw new Error("Database client not available");
+      
       const existingBooking = await prisma.booking.findFirst({
         where: {
           roomId,

@@ -1,11 +1,19 @@
-import { prisma } from "@/helpers/prisma";
-import { Prisma } from "@prisma/client";
+import { getPrismaClientSync } from "@/helpers/prisma";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { DatabaseError } from "@/errors/database.error";
 
 /**
  * Repository for handling hotel-related database operations
  */
 export class HotelRepository {
+  /**
+   * Get a Prisma client instance
+   * @returns Promise resolving to a Prisma client or null
+   */
+  private static async getPrisma(): Promise<PrismaClient | null> {
+    return await getPrismaClientSync();
+  }
+
   /**
    * Handles database operation errors
    */
@@ -39,6 +47,9 @@ export class HotelRepository {
   }) {
     try {
       console.log('Repository getAllHotels called with params:', params);
+      const prisma = await this.getPrisma();
+      if (!prisma) throw new Error("Database client not available");
+      
       const hotels = await prisma.hotel.findMany({
         where: {
           ...(params?.city && { city: params.city }),
@@ -103,6 +114,9 @@ export class HotelRepository {
    */
   static async getHotelById(id: string) {
     try {
+      const prisma = await this.getPrisma();
+      if (!prisma) throw new Error("Database client not available");
+      
       const hotel = await prisma.hotel.findUnique({
         where: { id },
         include: {
@@ -197,6 +211,9 @@ export class HotelRepository {
     imageUrl?: string;
   }) {
     try {
+      const prisma = await this.getPrisma();
+      if (!prisma) throw new Error("Database client not available");
+      
       return await prisma.hotel.create({
         data,
         include: {
@@ -225,6 +242,9 @@ export class HotelRepository {
     }
   ) {
     try {
+      const prisma = await this.getPrisma();
+      if (!prisma) throw new Error("Database client not available");
+      
       return await prisma.hotel.update({
         where: { id },
         data,
@@ -242,6 +262,9 @@ export class HotelRepository {
    */
   static async deleteHotel(id: string) {
     try {
+      const prisma = await this.getPrisma();
+      if (!prisma) throw new Error("Database client not available");
+      
       return await prisma.hotel.delete({
         where: { id },
       });
