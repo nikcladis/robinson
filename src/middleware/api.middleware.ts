@@ -1,5 +1,5 @@
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/options";
+import { getAuthOptions } from "@/app/api/auth/[...nextauth]/options";
 import { NextResponse } from "next/server";
 
 /**
@@ -7,7 +7,8 @@ import { NextResponse } from "next/server";
  * @returns NextResponse with 401 status if user is not admin, null if user is admin
  */
 export async function requireAdmin() {
-  const session = await getServerSession(authOptions);
+  const options = await getAuthOptions();
+  const session = await getServerSession(options);
 
   if (session?.user?.role !== "ADMIN") {
     return NextResponse.json(
@@ -24,7 +25,8 @@ export async function requireAdmin() {
  * @returns NextResponse with 401 status if user is not authenticated, null if user is authenticated
  */
 export async function requireAuth() {
-  const session = await getServerSession(authOptions);
+  const options = await getAuthOptions();
+  const session = await getServerSession(options);
 
   if (!session?.user) {
     return NextResponse.json(
