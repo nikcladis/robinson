@@ -1,6 +1,7 @@
 'use server';
 
 import { PrismaClient, Prisma } from "@prisma/client";
+import { Mutex } from 'async-mutex';
 
 /**
  * Maximum number of connection retries
@@ -26,6 +27,11 @@ const prismaClientConfig: Prisma.PrismaClientOptions = {
 };
 
 /**
+ * Mutex for protecting concurrent connection attempts
+ */
+const connectionMutex = new Mutex();
+
+/**
  * Singleton PrismaClient instance with connection management
  */
 class PrismaManager {
@@ -49,7 +55,8 @@ class PrismaManager {
   }
 
   /**
-   * Initializes the database connection
+   * Initializes the database connection with mutex protection against concurrent initialization
+   * The mutex ensures only one connection attempt is made at a time, preventing race conditions
    */
   static async connect(retries = MAX_RETRIES): Promise<void> {
     if (!isServer) {
@@ -57,7 +64,10 @@ class PrismaManager {
       return;
     }
 
-    if (!PrismaManager.connectionPromise) {
+    return connectionMutex.runExclusive(async () => {
+      // Double-check pattern: Check again inside the critical section
+      if (PrismaManager.connectionPromise) return PrismaManager.connectionPromise;
+
       PrismaManager.connectionPromise = (async () => {
         let currentRetry = 0;
         
@@ -81,9 +91,9 @@ class PrismaManager {
           }
         }
       })();
-    }
-    
-    return PrismaManager.connectionPromise;
+      
+      return PrismaManager.connectionPromise;
+    });
   }
 
   /**
@@ -95,10 +105,14 @@ class PrismaManager {
     }
 
     try {
-      await PrismaManager.instance.$disconnect();
-      PrismaManager.instance = null;
-      PrismaManager.connectionPromise = null;
-      console.log("Successfully disconnected from database");
+      await connectionMutex.runExclusive(async () => {
+        if (!PrismaManager.instance) return;
+        
+        await PrismaManager.instance.$disconnect();
+        PrismaManager.instance = null;
+        PrismaManager.connectionPromise = null;
+        console.log("Successfully disconnected from database");
+      });
     } catch (error) {
       console.error("Failed to disconnect from database:", error);
     }
