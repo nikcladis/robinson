@@ -5,7 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcrypt";
 import { getPrismaClientSync } from "@/helpers/prisma";
 import { Adapter } from "next-auth/adapters";
-import { UserRole, PrismaClient } from "@prisma/client";
+import { UserRole } from "@prisma/client";
 
 // We need to define our options with a function to properly handle async access to Prisma
 export const getAuthOptions = async (): Promise<NextAuthOptions> => {
@@ -13,7 +13,7 @@ export const getAuthOptions = async (): Promise<NextAuthOptions> => {
   const prisma = await getPrismaClientSync();
 
   return {
-    adapter: prisma ? PrismaAdapter(prisma) as Adapter : undefined,
+    adapter: prisma ? (PrismaAdapter(prisma) as Adapter) : undefined,
     providers: [
       GoogleProvider({
         clientId: process.env.GOOGLE_CLIENT_ID || "",
