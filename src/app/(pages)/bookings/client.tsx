@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { formatDate, getStatusBadgeClass, getPaymentStatusBadgeClass } from "@/utils/format-utils";
 
 // Define a type for serialized bookings
-type SerializedBooking = {
+export type SerializedBooking = {
   id: string;
   userId: string;
   roomId: string;
@@ -176,42 +177,4 @@ export default function ClientBookingList({ initialBookings, error: initialError
       </div>
     </div>
   );
-}
-
-// Helper functions moved from BookingService to eliminate client-side Prisma dependencies
-function formatDate(dateString: string | Date): string {
-  const date = typeof dateString === "string" ? new Date(dateString) : dateString;
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
-
-function getStatusBadgeClass(status: string): string {
-  switch (status) {
-    case "CONFIRMED":
-      return "bg-green-100 text-green-800";
-    case "PENDING":
-      return "bg-yellow-100 text-yellow-800";
-    case "CANCELLED":
-      return "bg-red-100 text-red-800";
-    case "COMPLETED":
-      return "bg-blue-100 text-blue-800";
-    default:
-      return "bg-gray-100 text-gray-800";
-  }
-}
-
-function getPaymentStatusBadgeClass(status: string): string {
-  switch (status) {
-    case "PAID":
-      return "bg-green-100 text-green-800";
-    case "UNPAID":
-      return "bg-red-100 text-red-800";
-    case "REFUNDED":
-      return "bg-blue-100 text-blue-800";
-    default:
-      return "bg-gray-100 text-gray-800";
-  }
 } 

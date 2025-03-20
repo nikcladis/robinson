@@ -22,11 +22,27 @@ export function useBooking() {
         throw new Error(`Failed to fetch bookings: ${response.statusText}`);
       }
       
-      const data = await response.json();
+      const responseData = await response.json();
+      
+      // Check if responseData is an object with a data property or directly an array
+      let bookingsData;
+      if (Array.isArray(responseData)) {
+        bookingsData = responseData;
+      } else if (responseData && typeof responseData === 'object') {
+        // If it's an API response object with 'data' property
+        bookingsData = responseData.data || [];
+      } else {
+        bookingsData = [];
+        console.error('Unexpected response format:', responseData);
+      }
+      
       // Convert Prisma objects to plain JavaScript objects to avoid serialization issues
-      setBookings(JSON.parse(JSON.stringify(data)));
+      setBookings(Array.isArray(bookingsData) ? JSON.parse(JSON.stringify(bookingsData)) : []);
     } catch (err) {
+      console.error('Error fetching bookings:', err);
       setError(err instanceof Error ? err.message : 'An error occurred fetching bookings');
+      // Ensure bookings is always an array even on error
+      setBookings([]);
     } finally {
       setIsLoading(false);
     }

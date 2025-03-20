@@ -1,8 +1,7 @@
-import { BookingService } from "@/services/booking.service";
-import ClientBookingList from "./client";
+import ClientBookingList, { SerializedBooking } from "./client";
 import { getServerSession } from "next-auth";
 import { getAuthOptions } from "@/app/api/auth/[...nextauth]/options";
-import { getPrismaClientSync } from "@/helpers/prisma";
+import { BookingController } from "@/controllers/booking.controller";
 
 export default async function BookingsPage() {
   try {
@@ -22,77 +21,23 @@ export default async function BookingsPage() {
     console.log("User authenticated:", session.user.id);
     
     try {
-      // Get direct Prisma access
-      const prisma = await getPrismaClientSync();
-      if (!prisma) {
-        console.error("Prisma client not available");
-        return <ClientBookingList 
-          initialBookings={[]} 
-          error="Database connection failed" 
-        />;
-      }
-      
       console.log("Fetching bookings for user:", session.user.id);
       
-      // Fetch bookings directly with Prisma
-      const rawBookings = await prisma.booking.findMany({
-        where: { 
-          userId: session.user.id 
-        },
-        select: {
-          id: true,
-          userId: true,
-          roomId: true,
-          checkInDate: true,
-          checkOutDate: true,
-          numberOfGuests: true,
-          totalPrice: true,
-          status: true,
-          paymentStatus: true,
-          specialRequests: true,
-          createdAt: true,
-          updatedAt: true,
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
-          },
-          room: {
-            select: {
-              id: true,
-              roomNumber: true,
-              roomType: true,
-              price: true,
-              hotel: {
-                select: {
-                  id: true,
-                  name: true,
-                  city: true,
-                  country: true,
-                },
-              },
-            },
-          },
-        },
-      });
+      // Fetch bookings using the controller
+      const rawBookings = await BookingController.getUserBookings(session.user.id);
       
       console.log(`Found ${rawBookings.length} bookings`);
       
-      // Manually transform dates to strings to avoid serialization issues
-      const safeBookings = rawBookings.map(booking => ({
+      // Serialize the bookings to ensure we're working with string dates for the client
+      const serializedBookings: SerializedBooking[] = rawBookings.map(booking => ({
         ...booking,
-        checkInDate: booking.checkInDate.toISOString(),
-        checkOutDate: booking.checkOutDate.toISOString(),
-        createdAt: booking.createdAt.toISOString(),
-        updatedAt: booking.updatedAt.toISOString(),
+        checkInDate: booking.checkInDate instanceof Date ? booking.checkInDate.toISOString() : String(booking.checkInDate),
+        checkOutDate: booking.checkOutDate instanceof Date ? booking.checkOutDate.toISOString() : String(booking.checkOutDate),
+        createdAt: booking.createdAt instanceof Date ? booking.createdAt.toISOString() : String(booking.createdAt),
+        updatedAt: booking.updatedAt instanceof Date ? booking.updatedAt.toISOString() : String(booking.updatedAt),
       }));
       
-      console.log("Successfully serialized bookings data");
-      
-      return <ClientBookingList initialBookings={safeBookings} />;
+      return <ClientBookingList initialBookings={serializedBookings} />;
     } catch (dbError) {
       console.error("Database error:", dbError);
       return <ClientBookingList 

@@ -1,7 +1,7 @@
 import { Hotel } from "@/models";
-import { HotelService } from "@/services/hotel.service";
 import Image from "next/image";
 import Link from "next/link";
+import { formatPrice, getAmenityLabel, getRoomTypeLabel } from "@/utils/format-utils";
 
 interface HotelCardProps {
   hotel: Hotel;
@@ -58,7 +58,7 @@ export default function HotelCard({ hotel }: HotelCardProps) {
                   key={index}
                   className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded mr-2 mb-2"
                 >
-                  {HotelService.getAmenityLabel(amenity)}
+                  {getAmenityLabel(amenity)}
                 </span>
               ))}
               {hotel.amenities.length > 4 && (
@@ -81,7 +81,7 @@ export default function HotelCard({ hotel }: HotelCardProps) {
                   >
                     <div>
                       <div className="font-medium">
-                        {HotelService.getRoomTypeLabel(room.roomType)}
+                        {getRoomTypeLabel(room.roomType)}
                       </div>
                       <div className="text-sm">
                         Up to {room.capacity} guests
@@ -89,7 +89,7 @@ export default function HotelCard({ hotel }: HotelCardProps) {
                     </div>
                     <div className="text-right">
                       <div className="font-bold">
-                        {HotelService.formatPrice(room.price)}
+                        {formatPrice(room.price)}
                       </div>
                       <div className="text-sm">per night</div>
                     </div>

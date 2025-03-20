@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Booking } from "@/models";
 import { BookingService } from "@/services/booking.service";
 import { useRouter } from "next/navigation";
+import { formatDate, getStatusBadgeClass, getPaymentStatusBadgeClass } from "@/utils/format-utils";
 
 export default function BookingList() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -119,10 +120,10 @@ export default function BookingList() {
                 </td>
                 <td className="px-6 py-4">
                   <div className="text-sm text-gray-900">
-                    Check-in: {BookingService.formatDate(booking.checkInDate)}
+                    Check-in: {formatDate(booking.checkInDate)}
                   </div>
                   <div className="text-sm text-gray-900">
-                    Check-out: {BookingService.formatDate(booking.checkOutDate)}
+                    Check-out: {formatDate(booking.checkOutDate)}
                   </div>
                   <div className="text-xs text-gray-500">
                     {booking.numberOfGuests}{" "}
@@ -136,7 +137,7 @@ export default function BookingList() {
                 </td>
                 <td className="px-6 py-4">
                   <span
-                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${BookingService.getStatusBadgeClass(
+                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(
                       booking.status
                     )}`}
                   >
@@ -145,7 +146,7 @@ export default function BookingList() {
                 </td>
                 <td className="px-6 py-4">
                   <span
-                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${BookingService.getPaymentStatusBadgeClass(
+                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getPaymentStatusBadgeClass(
                       booking.paymentStatus
                     )}`}
                   >
