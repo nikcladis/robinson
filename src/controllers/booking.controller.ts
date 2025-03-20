@@ -1,55 +1,59 @@
-import { NextRequest, NextResponse } from "next/server";
-import { BookingValidator, updateBookingStatusSchema } from "@/validations/booking.validation";
 import { BookingService } from "@/services/booking.service";
-import { z } from "zod";
+import { BookingValidator } from "@/validations/booking.validation";
+import { Booking, BookingStatus, PaymentStatus } from "@prisma/client";
+import { ErrorHandler } from "@/utils/error-handler";
+import { ValidationError, NotFoundError } from "@/errors";
 
 /**
- * BookingController handles all booking-related operations in the admin panel
+ * Controller for booking-related business logic
  */
 export class BookingController {
   /**
-   * Get all bookings with optional filtering
+   * Retrieves all bookings with optional filtering
    */
-  static async getAllBookings(): Promise<NextResponse> {
-    try {
-      const bookings = await BookingService.getAllBookings();
-      // Serialize to remove any Prisma-specific properties or methods
-      return NextResponse.json(JSON.parse(JSON.stringify(bookings)));
-    } catch (error) {
-      console.error("Error fetching all bookings:", error);
-      return NextResponse.json(
-        { error: "Failed to fetch bookings" },
-        { status: 500 }
-      );
-    }
+  static async getAllBookings(params?: {
+    status?: BookingStatus;
+    paymentStatus?: PaymentStatus;
+    fromDate?: Date;
+    toDate?: Date;
+    userId?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<Booking[]> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        // Validate filter params if provided
+        if (params) {
+          const validation = BookingValidator.validateSearchParams(params);
+          if (!validation.isValid) {
+            throw new ValidationError(validation.errors.join(", "));
+          }
+        }
+
+        return await BookingService.getAllBookings(params);
+      },
+      (error) => ErrorHandler.handleControllerError(error, "getAllBookings")
+    );
   }
 
   /**
-   * Get bookings for a specific user
+   * Retrieves bookings for a specific user
    */
-  static async getUserBookings(userId: string): Promise<NextResponse> {
-    try {
-      if (!userId) {
-        return NextResponse.json(
-          { error: "User ID is required" },
-          { status: 400 }
-        );
-      }
+  static async getUserBookings(userId: string): Promise<Booking[]> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        if (!userId) {
+          throw new ValidationError("User ID is required");
+        }
 
-      const bookings = await BookingService.getUserBookings(userId);
-      // Serialize to remove any Prisma-specific properties or methods
-      return NextResponse.json(JSON.parse(JSON.stringify(bookings)));
-    } catch (error) {
-      console.error(`Error fetching bookings for user ${userId}:`, error);
-      return NextResponse.json(
-        { error: "Failed to fetch user bookings" },
-        { status: 500 }
-      );
-    }
+        return await BookingService.getUserBookings(userId);
+      },
+      (error) => ErrorHandler.handleControllerError(error, `getUserBookings(${userId})`)
+    );
   }
 
   /**
-   * Create a new booking
+   * Creates a new booking
    */
   static async createBooking(data: {
     userId: string;
@@ -58,146 +62,202 @@ export class BookingController {
     checkOutDate: string;
     numberOfGuests: number;
     totalPrice: number;
-    status?: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
-    paymentStatus?: "PAID" | "UNPAID" | "REFUNDED";
-  }): Promise<any> {
-    try {
-      // Validate booking data
-      const validationResult = BookingValidator.validateCreateBooking(data);
-      if (!validationResult.isValid) {
-        return NextResponse.json(
-          { error: "Invalid booking data", details: validationResult.errors },
-          { status: 400 }
-        );
-      }
-      
-      console.log("BookingController.createBooking: Validation passed, creating booking");
-      
-      // Create the booking in the database
-      const booking = await BookingService.createBooking(data);
-      
-      console.log("BookingController.createBooking: Booking created successfully", booking.id);
-      
-      // Serialize to remove any Prisma-specific properties or methods
-      return JSON.parse(JSON.stringify(booking));
-    } catch (error) {
-      console.error("Error creating booking:", error);
-      throw error;
-    }
+    status?: BookingStatus;
+    paymentStatus?: PaymentStatus;
+    specialRequests?: string;
+  }): Promise<Booking> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        // Validate booking data
+        const validation = BookingValidator.validateCreateBooking(data);
+        if (!validation.isValid) {
+          throw new ValidationError(validation.errors.join(", "));
+        }
+        
+        console.log("BookingController.createBooking: Validation passed, creating booking");
+        
+        // Create the booking using the service
+        const booking = await BookingService.createBooking(data);
+        
+        console.log("BookingController.createBooking: Booking created successfully", booking.id);
+        
+        return booking;
+      },
+      (error) => ErrorHandler.handleControllerError(error, "createBooking")
+    );
   }
 
   /**
-   * Get a single booking by ID
+   * Retrieves a specific booking by ID
    */
-  static async getBookingById(booking_id: string): Promise<NextResponse> {
-    try {
-      if (!booking_id) {
-        return NextResponse.json(
-          { error: "Booking ID is required" },
-          { status: 400 }
-        );
-      }
+  static async getBookingById(bookingId: string): Promise<Booking> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        if (!bookingId) {
+          throw new ValidationError("Booking ID is required");
+        }
 
-      const booking = await BookingService.getBookingById(booking_id);
+        const booking = await BookingService.getBookingById(bookingId);
 
-      if (!booking) {
-        return NextResponse.json(
-          { error: "Booking not found" },
-          { status: 404 }
-        );
-      }
+        if (!booking) {
+          throw new NotFoundError(`Booking with ID ${bookingId} not found`);
+        }
 
-      // Serialize to remove any Prisma-specific properties or methods
-      return NextResponse.json(JSON.parse(JSON.stringify(booking)));
-    } catch (error) {
-      console.error(`Error fetching booking ${booking_id}:`, error);
-      return NextResponse.json(
-        { error: "Failed to fetch booking" },
-        { status: 500 }
-      );
-    }
+        return booking;
+      },
+      (error) => ErrorHandler.handleControllerError(error, `getBookingById(${bookingId})`)
+    );
   }
 
   /**
-   * Update a booking's status
+   * Retrieves a booking for a specific user
    */
-  static async updateBookingStatus(booking_id: string, data: unknown): Promise<NextResponse> {
-    try {
-      if (!booking_id) {
-        return NextResponse.json(
-          { error: "Booking ID is required" },
-          { status: 400 }
-        );
-      }
+  static async getBooking(bookingId: string, userId: string): Promise<Booking> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        if (!bookingId) {
+          throw new ValidationError("Booking ID is required");
+        }
+        
+        if (!userId) {
+          throw new ValidationError("User ID is required");
+        }
 
-      // Validate the request data
-      const validationResult = BookingValidator.validateStatusUpdate(data);
-      if (!validationResult.isValid) {
-        return NextResponse.json(
-          { error: "Invalid booking status", details: validationResult.errors },
-          { status: 400 }
-        );
-      }
+        const booking = await BookingService.getBooking(bookingId);
 
-      // Check if booking exists
-      const bookingExists = await BookingService.bookingExists(booking_id);
+        if (!booking) {
+          throw new NotFoundError(`Booking with ID ${bookingId} not found`);
+        }
 
-      if (!bookingExists) {
-        return NextResponse.json(
-          { error: "Booking not found" },
-          { status: 404 }
-        );
-      }
+        // Check if the booking belongs to the user
+        if (booking.userId !== userId) {
+          throw new ValidationError("You don't have permission to view this booking");
+        }
 
-      // Type assertion is safe here because we've already validated the data
-      const typedData = data as z.infer<typeof updateBookingStatusSchema>;
-
-      // Update booking status
-      const updatedBooking = await BookingService.updateBookingStatus(booking_id, typedData.status);
-
-      // Serialize to remove any Prisma-specific properties or methods
-      return NextResponse.json(JSON.parse(JSON.stringify(updatedBooking)));
-    } catch (error) {
-      console.error(`Error updating booking ${booking_id}:`, error);
-      return NextResponse.json(
-        { error: "Failed to update booking status" },
-        { status: 500 }
-      );
-    }
+        return booking;
+      },
+      (error) => ErrorHandler.handleControllerError(error, `getBooking(${bookingId}, ${userId})`)
+    );
   }
 
   /**
-   * Delete a booking
+   * Updates a booking's status
    */
-  static async deleteBooking(booking_id: string): Promise<NextResponse> {
+  static async updateBookingStatus(
+    bookingId: string,
+    status: BookingStatus
+  ): Promise<Booking> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        if (!bookingId) {
+          throw new ValidationError("Booking ID is required");
+        }
+
+        // Validate the status using the status update validator
+        const validation = BookingValidator.validateStatusUpdate({ status });
+        if (!validation.isValid) {
+          throw new ValidationError(`Invalid booking status: ${status}`);
+        }
+
+        // Check if booking exists
+        const bookingExists = await BookingService.bookingExists(bookingId);
+        if (!bookingExists) {
+          throw new NotFoundError(`Booking with ID ${bookingId} not found`);
+        }
+
+        return await BookingService.updateBookingStatus(bookingId, status);
+      },
+      (error) => ErrorHandler.handleControllerError(error, `updateBookingStatus(${bookingId}, ${status})`)
+    );
+  }
+
+  /**
+   * Updates a booking's payment status
+   */
+  static async updateBookingPaymentStatus(
+    bookingId: string,
+    paymentStatus: PaymentStatus
+  ): Promise<Booking> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        if (!bookingId) {
+          throw new ValidationError("Booking ID is required");
+        }
+
+        // Validate using the updateBookingSchema or implementing a separate validator
+        if (!["PAID", "UNPAID", "REFUNDED"].includes(paymentStatus)) {
+          throw new ValidationError(`Invalid payment status: ${paymentStatus}`);
+        }
+
+        // Check if booking exists
+        const bookingExists = await BookingService.bookingExists(bookingId);
+        if (!bookingExists) {
+          throw new NotFoundError(`Booking with ID ${bookingId} not found`);
+        }
+
+        return await BookingService.updateBookingPaymentStatus(bookingId, paymentStatus);
+      },
+      (error) => ErrorHandler.handleControllerError(error, `updateBookingPaymentStatus(${bookingId}, ${paymentStatus})`)
+    );
+  }
+
+  /**
+   * Cancels a booking
+   */
+  static async cancelBooking(bookingId: string, userId: string): Promise<Booking> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        if (!bookingId) {
+          throw new ValidationError("Booking ID is required");
+        }
+
+        // Get the booking to check ownership
+        const booking = await BookingService.getBookingById(bookingId);
+        if (!booking) {
+          throw new NotFoundError(`Booking with ID ${bookingId} not found`);
+        }
+
+        // Check if the booking belongs to the user
+        if (booking.userId !== userId) {
+          throw new ValidationError("You don't have permission to cancel this booking");
+        }
+
+        return await BookingService.cancelBooking(bookingId);
+      },
+      (error) => ErrorHandler.handleControllerError(error, `cancelBooking(${bookingId})`)
+    );
+  }
+
+  /**
+   * Deletes a booking
+   */
+  static async deleteBooking(bookingId: string): Promise<Booking> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        if (!bookingId) {
+          throw new ValidationError("Booking ID is required");
+        }
+
+        // Check if booking exists
+        const bookingExists = await BookingService.bookingExists(bookingId);
+        if (!bookingExists) {
+          throw new NotFoundError(`Booking with ID ${bookingId} not found`);
+        }
+
+        return await BookingService.deleteBooking(bookingId);
+      },
+      (error) => ErrorHandler.handleControllerError(error, `deleteBooking(${bookingId})`)
+    );
+  }
+
+  /**
+   * Checks if a booking exists
+   */
+  static async bookingExists(bookingId: string): Promise<boolean> {
     try {
-      if (!booking_id) {
-        return NextResponse.json(
-          { error: "Booking ID is required" },
-          { status: 400 }
-        );
-      }
-
-      // Check if booking exists
-      const bookingExists = await BookingService.bookingExists(booking_id);
-
-      if (!bookingExists) {
-        return NextResponse.json(
-          { error: "Booking not found" },
-          { status: 404 }
-        );
-      }
-
-      // Delete the booking
-      await BookingService.deleteBooking(booking_id);
-
-      return NextResponse.json({ success: true }, { status: 200 });
+      return await BookingService.bookingExists(bookingId);
     } catch (error) {
-      console.error(`Error deleting booking ${booking_id}:`, error);
-      return NextResponse.json(
-        { error: "Failed to delete booking" },
-        { status: 500 }
-      );
+      return false;
     }
   }
 }
