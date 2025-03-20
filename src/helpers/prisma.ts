@@ -1,4 +1,7 @@
+'use server';
+
 import { PrismaClient, Prisma } from "@prisma/client";
+import { Mutex } from 'async-mutex';
 
 /**
  * Maximum number of connection retries
@@ -10,15 +13,23 @@ const MAX_RETRIES = 3;
  */
 const RETRY_DELAY = 1000;
 
+// Checking if we're on the server-side
+const isServer = typeof window === 'undefined';
+
 /**
  * Configuration for Prisma Client
  */
 const prismaClientConfig: Prisma.PrismaClientOptions = {
   log:
     process.env.NODE_ENV === "development"
-      ? (["query", "error", "warn"] as Prisma.LogLevel[])
-      : (["error"] as Prisma.LogLevel[]),
+      ? ["query", "error", "warn"]
+      : ["error"],
 };
+
+/**
+ * Mutex for protecting concurrent connection attempts
+ */
+const connectionMutex = new Mutex();
 
 /**
  * Singleton PrismaClient instance with connection management
@@ -31,6 +42,12 @@ class PrismaManager {
    * Gets the PrismaClient instance, creating it if necessary
    */
   static getInstance(): PrismaClient {
+    if (!isServer) {
+      // Return a mock or throw an error in browser environments
+      console.error("Attempted to use PrismaClient in browser environment. This is likely due to importing a server component in a client component.");
+      throw new Error("PrismaClient cannot be used in browser environments. Make sure you're not importing server components or database logic in client components.");
+    }
+
     if (!PrismaManager.instance) {
       PrismaManager.instance = new PrismaClient(prismaClientConfig);
     }
@@ -38,58 +55,91 @@ class PrismaManager {
   }
 
   /**
-   * Connects to the database with retry logic
+   * Initializes the database connection with mutex protection against concurrent initialization
+   * The mutex ensures only one connection attempt is made at a time, preventing race conditions
    */
   static async connect(retries = MAX_RETRIES): Promise<void> {
-    if (!PrismaManager.connectionPromise) {
-      PrismaManager.connectionPromise = (async () => {
-        try {
-          const client = PrismaManager.getInstance();
-          await client.$connect();
-          console.log("Successfully connected to database");
-        } catch (error) {
-          console.error("Failed to connect to database:", error);
+    if (!isServer) {
+      console.error("Attempted to connect to database in browser environment");
+      return;
+    }
 
-          if (retries > 0) {
-            console.log(
-              `Retrying connection in ${RETRY_DELAY}ms... (${retries} attempts remaining)`
-            );
-            await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
-            await PrismaManager.connect(retries - 1);
-          } else {
-            PrismaManager.connectionPromise = null;
-            throw new Error(
-              "Failed to connect to database after multiple attempts"
-            );
+    return connectionMutex.runExclusive(async () => {
+      // Double-check pattern: Check again inside the critical section
+      if (PrismaManager.connectionPromise) return PrismaManager.connectionPromise;
+
+      PrismaManager.connectionPromise = (async () => {
+        let currentRetry = 0;
+        
+        while (currentRetry <= retries) {
+          try {
+            const client = PrismaManager.getInstance();
+            await client.$connect();
+            console.log("Successfully connected to database");
+            return;
+          } catch (error) {
+            console.error("Failed to connect to database:", error);
+            
+            if (currentRetry >= retries) {
+              PrismaManager.connectionPromise = null;
+              throw new Error("Failed to connect to database after multiple attempts");
+            }
+            
+            currentRetry++;
+            console.log(`Retrying connection (${currentRetry}/${retries})...`);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
           }
         }
       })();
-    }
-    return PrismaManager.connectionPromise;
+      
+      return PrismaManager.connectionPromise;
+    });
   }
 
   /**
    * Disconnects from the database
    */
   static async disconnect(): Promise<void> {
-    if (PrismaManager.instance) {
-      await PrismaManager.instance.$disconnect();
-      PrismaManager.instance = null;
-      PrismaManager.connectionPromise = null;
+    if (!isServer || !PrismaManager.instance) {
+      return;
+    }
+
+    try {
+      await connectionMutex.runExclusive(async () => {
+        if (!PrismaManager.instance) return;
+        
+        await PrismaManager.instance.$disconnect();
+        PrismaManager.instance = null;
+        PrismaManager.connectionPromise = null;
+        console.log("Successfully disconnected from database");
+      });
+    } catch (error) {
+      console.error("Failed to disconnect from database:", error);
     }
   }
 }
 
 // Initialize connection
-PrismaManager.connect().catch((error) => {
-  console.error("Initial database connection failed:", error);
-  process.exit(1);
-});
+if (isServer) {
+  PrismaManager.connect().catch((error) => {
+    console.error("Initial database connection failed:", error);
+    process.exit(1);
+  });
 
-// Handle cleanup on application shutdown
-process.on("beforeExit", async () => {
-  await PrismaManager.disconnect();
-});
+  // Handle cleanup on application shutdown
+  process.on("beforeExit", async () => {
+    await PrismaManager.disconnect();
+  });
+}
 
-// Export the managed Prisma instance
-export const prisma = PrismaManager.getInstance();
+// Export the database client getter function
+export async function getPrismaClient(): Promise<PrismaClient | null> {
+  if (!isServer) return null;
+  return PrismaManager.getInstance();
+}
+
+// For backwards compatibility, provide a function for existing code
+export async function getPrismaClientSync(): Promise<PrismaClient | null> {
+  if (!isServer) return null;
+  return PrismaManager.getInstance();
+}

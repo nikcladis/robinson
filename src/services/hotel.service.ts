@@ -1,4 +1,7 @@
-import { Hotel, Room } from "@/models";
+import { ErrorHandler } from "@/utils/error-handler";
+import { AppError, NotFoundError } from "@/errors";
+import type { Hotel, Room } from "@/models/hotel";
+// Note: Formatting functions (formatPrice, getAmenityLabel, etc.) have been moved to src/utils/format-utils.ts
 
 /**
  * Parameters for searching hotels with optional filters
@@ -20,28 +23,27 @@ export interface SearchHotelsParams {
 }
 
 /**
- * Required parameters for creating a new hotel
- * @interface CreateHotelParams
+ * Interface for hotel creation parameters
  */
 export interface CreateHotelParams {
-  /** Name of the hotel */
   name: string;
-  /** Detailed description of the hotel */
   description: string;
-  /** City where the hotel is located */
   city: string;
-  /** Country where the hotel is located */
   country: string;
-  /** Full address of the hotel */
   address: string;
-  /** URL or path to the hotel's main image */
-  image: string;
+  postalCode: string;
+  starRating: number;
+  amenities: string[];
+  imageUrl: string; // Use consistent naming across components
 }
 
 /**
  * Service class for managing hotel-related operations
  * Provides methods for CRUD operations on hotels, room management,
  * and utility functions for formatting and displaying hotel information
+ * 
+ * Note: UI formatting utilities like formatPrice(), getAmenityLabel(), etc. 
+ * have been moved to src/utils/format-utils.ts
  */
 export class HotelService {
   /**
@@ -57,21 +59,54 @@ export class HotelService {
     limit?: number;
     offset?: number;
   }): Promise<Hotel[]> {
-    const queryParams = new URLSearchParams();
-    if (params?.city) queryParams.append("city", params.city);
-    if (params?.country) queryParams.append("country", params.country);
-    if (params?.minRating)
-      queryParams.append("minRating", params.minRating.toString());
-    if (params?.maxPrice)
-      queryParams.append("maxPrice", params.maxPrice.toString());
-    if (params?.limit) queryParams.append("limit", params.limit.toString());
-    if (params?.offset) queryParams.append("offset", params.offset.toString());
+    return ErrorHandler.wrapAsync(
+      async () => {
+        // Check if we're in a browser environment
+        const isBrowser = typeof window !== 'undefined';
+        
+        if (isBrowser) {
+          // Client-side: use fetch API
+          const queryParams = new URLSearchParams();
+          if (params?.city) queryParams.append("city", params.city);
+          if (params?.country) queryParams.append("country", params.country);
+          if (params?.minRating)
+            queryParams.append("minRating", params.minRating.toString());
+          if (params?.maxPrice)
+            queryParams.append("maxPrice", params.maxPrice.toString());
+          if (params?.limit) queryParams.append("limit", params.limit.toString());
+          if (params?.offset) queryParams.append("offset", params.offset.toString());
 
-    const response = await fetch(`/api/hotels?${queryParams.toString()}`);
-    if (!response.ok) {
-      throw new Error("Failed to fetch hotels");
-    }
-    return response.json();
+          try {
+            console.log(`Fetching hotels from: /api/hotels?${queryParams.toString()}`);
+            const response = await fetch(`/api/hotels?${queryParams.toString()}`);
+            
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({ message: `HTTP error ${response.status}` }));
+              throw new AppError(
+                errorData?.message || "Failed to fetch hotels",
+                "API_ERROR",
+                response.status
+              );
+            }
+            
+            return response.json();
+          } catch (error) {
+            console.error("Error fetching hotels:", error);
+            throw new AppError(
+              error instanceof Error ? error.message : "Network error when fetching hotels",
+              "NETWORK_ERROR",
+              500
+            );
+          }
+        } else {
+          // Server-side: use repository directly
+          console.log("Server-side hotel fetch, using repository directly");
+          const { HotelRepository } = await import("@/repositories/hotel.repository");
+          return HotelRepository.getAllHotels(params);
+        }
+      },
+      (error) => ErrorHandler.handleServiceError(error, "getAllHotels")
+    );
   }
 
   /**
@@ -81,11 +116,47 @@ export class HotelService {
    * @throws Error if the hotel is not found or if the request fails
    */
   static async getHotel(id: string): Promise<Hotel> {
-    const response = await fetch(`/api/hotels/${id}`);
-    if (!response.ok) {
-      throw new Error("Failed to fetch hotel");
-    }
-    return response.json();
+    return ErrorHandler.wrapAsync(
+      async () => {
+        // Check if we're in a browser environment
+        const isBrowser = typeof window !== 'undefined';
+        
+        if (isBrowser) {
+          // Client-side: use fetch API
+          try {
+            console.log(`Fetching hotel from: /api/hotels/${id}`);
+            const response = await fetch(`/api/hotels/${id}`);
+            
+            if (!response.ok) {
+              if (response.status === 404) {
+                throw new NotFoundError(`Hotel with ID ${id} not found`);
+              }
+              const errorData = await response.json().catch(() => ({ message: `HTTP error ${response.status}` }));
+              throw new AppError(
+                errorData?.message || "Failed to fetch hotel",
+                "API_ERROR",
+                response.status
+              );
+            }
+            
+            return response.json();
+          } catch (error) {
+            console.error("Error fetching hotel:", error);
+            throw new AppError(
+              error instanceof Error ? error.message : `Network error when fetching hotel ${id}`,
+              "NETWORK_ERROR",
+              500
+            );
+          }
+        } else {
+          // Server-side: use repository directly
+          console.log(`Server-side hotel fetch for ID ${id}, using repository directly`);
+          const { HotelRepository } = await import("@/repositories/hotel.repository");
+          return HotelRepository.getHotelById(id);
+        }
+      },
+      (error) => ErrorHandler.handleServiceError(error, `getHotel(${id})`)
+    );
   }
 
   /**
@@ -95,12 +166,47 @@ export class HotelService {
    * @throws Error if the room is not found or if the request fails
    */
   static async getRoom(roomId: string): Promise<Room> {
-    const response = await fetch(`/api/rooms/${roomId}`);
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || "Failed to fetch room");
-    }
-    return response.json();
+    return ErrorHandler.wrapAsync(
+      async () => {
+        // Check if we're in a browser environment
+        const isBrowser = typeof window !== 'undefined';
+        
+        if (isBrowser) {
+          // Client-side: use fetch API
+          try {
+            console.log(`Fetching room from: /api/rooms/${roomId}`);
+            const response = await fetch(`/api/rooms/${roomId}`);
+            
+            if (!response.ok) {
+              if (response.status === 404) {
+                throw new NotFoundError(`Room with ID ${roomId} not found`);
+              }
+              const errorData = await response.json().catch(() => ({ message: `HTTP error ${response.status}` }));
+              throw new AppError(
+                errorData?.message || "Failed to fetch room",
+                "API_ERROR",
+                response.status
+              );
+            }
+            
+            return response.json();
+          } catch (error) {
+            console.error("Error fetching room:", error);
+            throw new AppError(
+              error instanceof Error ? error.message : `Network error when fetching room ${roomId}`,
+              "NETWORK_ERROR",
+              500
+            );
+          }
+        } else {
+          // Server-side: use repository directly
+          console.log(`Server-side room fetch for ID ${roomId}, using repository directly`);
+          const { RoomRepository } = await import("@/repositories/room.repository");
+          return RoomRepository.getRoomById(roomId);
+        }
+      },
+      (error) => ErrorHandler.handleServiceError(error, `getRoom(${roomId})`)
+    );
   }
 
   /**
@@ -116,107 +222,29 @@ export class HotelService {
     checkIn: string,
     checkOut: string
   ): Promise<boolean> {
-    const searchParams = new URLSearchParams({
-      checkIn,
-      checkOut,
-    });
+    return ErrorHandler.wrapAsync(
+      async () => {
+        const searchParams = new URLSearchParams({
+          checkIn,
+          checkOut,
+        });
 
-    const response = await fetch(
-      `/api/rooms/${roomId}/availability?${searchParams.toString()}`
+        const response = await fetch(
+          `/api/rooms/${roomId}/availability?${searchParams.toString()}`
+        );
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          throw new AppError(
+            errorData?.message || "Failed to check room availability",
+            "API_ERROR",
+            response.status
+          );
+        }
+        const data = await response.json();
+        return data.available;
+      },
+      (error) => ErrorHandler.handleServiceError(error, `checkRoomAvailability(${roomId})`)
     );
-    if (!response.ok) {
-      throw new Error("Failed to check room availability");
-    }
-    const data = await response.json();
-    return data.available;
-  }
-
-  /**
-   * Formats a number as a USD price string
-   * @param price - Price to format
-   * @returns Formatted price string (e.g., "$100.00")
-   */
-  static formatPrice(price: number): string {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(price);
-  }
-
-  /**
-   * Converts a room type code to a human-readable label
-   * @param type - Room type code
-   * @returns Human-readable room type label
-   */
-  static getRoomTypeLabel(type: string): string {
-    const labels: Record<string, string> = {
-      STANDARD: "Standard Room",
-      DELUXE: "Deluxe Room",
-      SUITE: "Suite",
-      EXECUTIVE: "Executive Suite",
-      FAMILY: "Family Room",
-    };
-    return labels[type] || type;
-  }
-
-  /**
-   * Calculates the total price for a stay
-   * @param pricePerNight - Price per night in USD
-   * @param checkIn - Check-in date
-   * @param checkOut - Check-out date
-   * @returns Total price for the entire stay
-   */
-  static calculateTotalPrice(
-    pricePerNight: number,
-    checkIn: Date,
-    checkOut: Date
-  ): number {
-    const nights = Math.ceil(
-      (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    return pricePerNight * nights;
-  }
-
-  /**
-   * Gets the icon identifier for a given amenity
-   * @param amenity - Amenity code
-   * @returns Icon identifier string
-   */
-  static getAmenityIcon(amenity: string): string {
-    const icons: Record<string, string> = {
-      WIFI: "wifi",
-      POOL: "pool",
-      SPA: "spa",
-      GYM: "gym",
-      RESTAURANT: "restaurant",
-      PARKING: "parking",
-      ROOM_SERVICE: "room-service",
-      BAR: "bar",
-      AIR_CONDITIONING: "ac",
-      LAUNDRY: "laundry",
-    };
-    return icons[amenity] || "default";
-  }
-
-  /**
-   * Converts an amenity code to a human-readable label
-   * @param amenity - Amenity code
-   * @returns Human-readable amenity label
-   */
-  static getAmenityLabel(amenity: string): string {
-    const labels: Record<string, string> = {
-      WIFI: "Wi-Fi",
-      POOL: "Swimming Pool",
-      SPA: "Spa & Wellness",
-      GYM: "Fitness Center",
-      RESTAURANT: "Restaurant",
-      PARKING: "Parking",
-      ROOM_SERVICE: "Room Service",
-      BAR: "Bar/Lounge",
-      AIR_CONDITIONING: "Air Conditioning",
-      LAUNDRY: "Laundry Service",
-    };
-    return labels[amenity] || amenity;
   }
 
   /**
@@ -226,103 +254,219 @@ export class HotelService {
    * @throws Error if the search request fails
    */
   static async searchHotels(params: SearchHotelsParams): Promise<Hotel[]> {
-    const searchParams = new URLSearchParams();
+    return ErrorHandler.wrapAsync(
+      async () => {
+        const searchParams = new URLSearchParams();
 
-    if (params.city) searchParams.append("city", params.city);
-    if (params.checkIn) searchParams.append("checkIn", params.checkIn);
-    if (params.checkOut) searchParams.append("checkOut", params.checkOut);
-    if (params.guests) searchParams.append("guests", params.guests.toString());
-    if (params.minPrice)
-      searchParams.append("minPrice", params.minPrice.toString());
-    if (params.maxPrice)
-      searchParams.append("maxPrice", params.maxPrice.toString());
+        if (params.city) searchParams.append("city", params.city);
+        if (params.checkIn) searchParams.append("checkIn", params.checkIn);
+        if (params.checkOut) searchParams.append("checkOut", params.checkOut);
+        if (params.guests) searchParams.append("guests", params.guests.toString());
+        if (params.minPrice)
+          searchParams.append("minPrice", params.minPrice.toString());
+        if (params.maxPrice)
+          searchParams.append("maxPrice", params.maxPrice.toString());
 
-    const response = await fetch(
-      `/api/hotels/search?${searchParams.toString()}`
+        const response = await fetch(
+          `/api/hotels/search?${searchParams.toString()}`
+        );
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          throw new AppError(
+            errorData?.message || "Failed to search hotels",
+            "API_ERROR",
+            response.status
+          );
+        }
+        return response.json();
+      },
+      (error) => ErrorHandler.handleServiceError(error, "searchHotels")
     );
-    if (!response.ok) {
-      throw new Error("Failed to search hotels");
-    }
-    return response.json();
   }
 
   /**
    * Creates a new hotel in the system
-   * @param hotelData - Hotel details required for creation
+   * @param hotelData - Data for the new hotel
    * @returns Promise resolving to the created hotel
-   * @throws Error if the creation fails
+   * @throws Error if the creation request fails
    */
   static async createHotel(hotelData: CreateHotelParams): Promise<Hotel> {
-    const response = await fetch("/api/hotels", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    return ErrorHandler.wrapAsync(
+      async () => {
+        const response = await fetch("/api/hotels", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(hotelData),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          throw new AppError(
+            errorData?.message || "Failed to create hotel",
+            "API_ERROR",
+            response.status
+          );
+        }
+
+        return response.json();
       },
-      body: JSON.stringify(hotelData),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error || "Failed to create hotel");
-    }
-
-    return response.json();
+      (error) => ErrorHandler.handleServiceError(error, "createHotel")
+    );
   }
 
   /**
-   * Updates an existing hotel's information
+   * Updates an existing hotel
    * @param hotelId - ID of the hotel to update
-   * @param hotelData - Partial hotel data to update
+   * @param hotelData - Updated hotel data
    * @returns Promise resolving to the updated hotel
-   * @throws Error if the update fails
+   * @throws Error if the update request fails
    */
   static async updateHotel(
     hotelId: string,
     hotelData: Partial<CreateHotelParams>
   ): Promise<Hotel> {
-    const response = await fetch(`/api/hotels/${hotelId}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
+    return ErrorHandler.wrapAsync(
+      async () => {
+        // Check if we're in a browser environment
+        const isBrowser = typeof window !== 'undefined';
+        
+        if (isBrowser) {
+          // Client-side: use fetch API
+          try {
+            const url = `/api/hotels/${hotelId}`;
+            
+            const response = await fetch(url, {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(hotelData),
+            });
+  
+            if (!response.ok) {
+              if (response.status === 404) {
+                throw new NotFoundError(`Hotel with ID ${hotelId} not found`);
+              }
+              
+              // Try to get detailed error information
+              const errorData = await response.json().catch(() => ({ message: `HTTP error ${response.status}` }));
+              throw new AppError(
+                errorData?.message || "Failed to update hotel",
+                "API_ERROR",
+                response.status
+              );
+            }
+  
+            return response.json();
+          } catch (error) {
+            // Handle network and parsing errors
+            if (error instanceof NotFoundError || error instanceof AppError) {
+              throw error; // Re-throw application errors
+            }
+            
+            console.error('Hotel update error:', error);
+            throw new AppError(
+              error instanceof Error 
+                ? `Failed to update hotel: ${error.message}` 
+                : "Failed to update hotel - network or parsing error",
+              "NETWORK_ERROR",
+              500
+            );
+          }
+        } else {
+          // Server-side: use repository directly
+          const { HotelRepository } = await import("@/repositories/hotel.repository");
+          return HotelRepository.updateHotel(hotelId, hotelData);
+        }
       },
-      body: JSON.stringify(hotelData),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error || "Failed to update hotel");
-    }
-
-    return response.json();
+      (error) => ErrorHandler.handleServiceError(error, `updateHotel(${hotelId})`)
+    );
   }
 
   /**
    * Deletes a hotel from the system
    * @param hotelId - ID of the hotel to delete
-   * @throws Error if the deletion fails
+   * @throws Error if the deletion request fails
    */
   static async deleteHotel(hotelId: string): Promise<void> {
-    const response = await fetch(`/api/hotels/${hotelId}`, {
-      method: "DELETE",
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error || "Failed to delete hotel");
-    }
+    return ErrorHandler.wrapAsync(
+      async () => {
+        // Check if we're in a browser environment
+        const isBrowser = typeof window !== 'undefined';
+        
+        if (isBrowser) {
+          // Client-side: use fetch API
+          try {
+            const url = `/api/hotels/${hotelId}`;
+            
+            const response = await fetch(url, {
+              method: "DELETE",
+            });
+  
+            if (!response.ok) {
+              if (response.status === 404) {
+                throw new NotFoundError(`Hotel with ID ${hotelId} not found`);
+              }
+              const errorData = await response.json().catch(() => ({ message: `HTTP error ${response.status}` }));
+              throw new AppError(
+                errorData?.message || "Failed to delete hotel",
+                "API_ERROR",
+                response.status
+              );
+            }
+          } catch (error) {
+            // Handle network and parsing errors
+            if (error instanceof NotFoundError || error instanceof AppError) {
+              throw error; // Re-throw application errors
+            }
+            
+            console.error('Hotel delete error:', error);
+            throw new AppError(
+              error instanceof Error 
+                ? `Failed to delete hotel: ${error.message}` 
+                : "Failed to delete hotel - network or parsing error",
+              "NETWORK_ERROR",
+              500
+            );
+          }
+        } else {
+          // Server-side: use repository directly
+          const { HotelRepository } = await import("@/repositories/hotel.repository");
+          await HotelRepository.deleteHotel(hotelId);
+        }
+      },
+      (error) => ErrorHandler.handleServiceError(error, `deleteHotel(${hotelId})`)
+    );
   }
 
   /**
-   * Retrieves all rooms for a specific hotel
+   * Gets all rooms for a specific hotel
    * @param hotelId - ID of the hotel
    * @returns Promise resolving to an array of rooms
    * @throws Error if the request fails
    */
   static async getHotelRooms(hotelId: string): Promise<Room[]> {
-    const response = await fetch(`/api/hotels/${hotelId}/rooms`);
-    if (!response.ok) {
-      throw new Error("Failed to fetch hotel rooms");
-    }
-    return response.json();
+    return ErrorHandler.wrapAsync(
+      async () => {
+        const response = await fetch(`/api/hotels/${hotelId}/rooms`);
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            throw new NotFoundError(`Hotel with ID ${hotelId} not found`);
+          }
+          const errorData = await response.json().catch(() => null);
+          throw new AppError(
+            errorData?.message || "Failed to fetch hotel rooms",
+            "API_ERROR",
+            response.status
+          );
+        }
+
+        return response.json();
+      },
+      (error) => ErrorHandler.handleServiceError(error, `getHotelRooms(${hotelId})`)
+    );
   }
 }

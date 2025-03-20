@@ -1,140 +1,263 @@
+import { BookingService } from "@/services/booking.service";
 import { BookingValidator } from "@/validations/booking.validation";
-import { BookingRepository } from "@/repositories/booking.repository";
-import { Booking } from "@/models";
+import { Booking, BookingStatus, PaymentStatus } from "@prisma/client";
+import { ErrorHandler } from "@/utils/error-handler";
+import { ValidationError, NotFoundError } from "@/errors";
 
 /**
- * Controller for managing booking-related business logic and flow
+ * Controller for booking-related business logic
  */
 export class BookingController {
   /**
-   * Retrieves all bookings for a user
-   * @param userId - ID of the user
-   * @returns Array of user's bookings
-   * @throws Error if fetching fails
+   * Retrieves all bookings with optional filtering
    */
-  static async getUserBookings(userId: string): Promise<Booking[]> {
-    return BookingRepository.getUserBookings(userId);
+  static async getAllBookings(params?: {
+    status?: BookingStatus;
+    paymentStatus?: PaymentStatus;
+    fromDate?: Date;
+    toDate?: Date;
+    userId?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<Booking[]> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        // Validate filter params if provided
+        if (params) {
+          const validation = BookingValidator.validateSearchParams(params);
+          if (!validation.isValid) {
+            throw new ValidationError(validation.errors.join(", "));
+          }
+        }
+
+        return await BookingService.getAllBookings(params);
+      },
+      (error) => ErrorHandler.handleControllerError(error, "getAllBookings")
+    );
   }
 
   /**
-   * Creates a new booking with validation and business rules
-   * @param bookingData - Data for the new booking
-   * @returns Created booking or error
+   * Retrieves bookings for a specific user
    */
-  static async createBooking(bookingData: {
+  static async getUserBookings(userId: string): Promise<Booking[]> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        if (!userId) {
+          throw new ValidationError("User ID is required");
+        }
+
+        return await BookingService.getUserBookings(userId);
+      },
+      (error) => ErrorHandler.handleControllerError(error, `getUserBookings(${userId})`)
+    );
+  }
+
+  /**
+   * Creates a new booking
+   */
+  static async createBooking(data: {
     userId: string;
     roomId: string;
     checkInDate: string;
     checkOutDate: string;
     numberOfGuests: number;
     totalPrice: number;
-  }) {
-    // 1. Validate required fields
-    const fieldsValidation =
-      BookingValidator.validateRequiredFields(bookingData);
-    if (!fieldsValidation.isValid) {
-      throw new Error(fieldsValidation.errors.join(", "));
-    }
-
-    // 2. Validate room availability
-    const availabilityValidation =
-      await BookingValidator.validateRoomAvailability(
-        bookingData.roomId,
-        bookingData.checkInDate,
-        bookingData.checkOutDate
-      );
-    if (!availabilityValidation.isValid) {
-      throw new Error(availabilityValidation.errors.join(", "));
-    }
-
-    // 3. Apply business rules
-    const checkIn = new Date(bookingData.checkInDate);
-    const checkOut = new Date(bookingData.checkOutDate);
-
-    // 3.1 Ensure check-in is not in the past
-    if (checkIn < new Date()) {
-      throw new Error("Check-in date cannot be in the past");
-    }
-
-    // 3.2 Ensure check-out is after check-in
-    if (checkOut <= checkIn) {
-      throw new Error("Check-out date must be after check-in date");
-    }
-
-    // 4. Create the booking
-    return BookingRepository.createBooking({
-      userId: bookingData.userId,
-      roomId: bookingData.roomId,
-      checkInDate: checkIn,
-      checkOutDate: checkOut,
-      numberOfGuests: bookingData.numberOfGuests,
-      totalPrice: bookingData.totalPrice,
-    });
+    status?: BookingStatus;
+    paymentStatus?: PaymentStatus;
+    specialRequests?: string;
+  }): Promise<Booking> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        // Validate booking data
+        const validation = BookingValidator.validateCreateBooking(data);
+        if (!validation.isValid) {
+          throw new ValidationError(validation.errors.join(", "));
+        }
+        
+        console.log("BookingController.createBooking: Validation passed, creating booking");
+        
+        // Create the booking using the service
+        const booking = await BookingService.createBooking(data);
+        
+        console.log("BookingController.createBooking: Booking created successfully", booking.id);
+        
+        return booking;
+      },
+      (error) => ErrorHandler.handleControllerError(error, "createBooking")
+    );
   }
 
   /**
-   * Retrieves a specific booking
-   * Ensures the booking belongs to the user
+   * Retrieves a specific booking by ID
    */
-  static async getBooking(bookingId: string, userId: string) {
-    const booking = await BookingRepository.getBookingById(bookingId);
+  static async getBookingById(bookingId: string): Promise<Booking> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        if (!bookingId) {
+          throw new ValidationError("Booking ID is required");
+        }
 
-    if (!booking) {
-      throw new Error("Booking not found");
-    }
+        const booking = await BookingService.getBookingById(bookingId);
 
-    if (booking.userId !== userId) {
-      throw new Error("Unauthorized access to booking");
-    }
+        if (!booking) {
+          throw new NotFoundError(`Booking with ID ${bookingId} not found`);
+        }
 
-    return booking;
+        return booking;
+      },
+      (error) => ErrorHandler.handleControllerError(error, `getBookingById(${bookingId})`)
+    );
+  }
+
+  /**
+   * Retrieves a booking for a specific user
+   */
+  static async getBooking(bookingId: string, userId: string): Promise<Booking> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        if (!bookingId) {
+          throw new ValidationError("Booking ID is required");
+        }
+        
+        if (!userId) {
+          throw new ValidationError("User ID is required");
+        }
+
+        const booking = await BookingService.getBooking(bookingId);
+
+        if (!booking) {
+          throw new NotFoundError(`Booking with ID ${bookingId} not found`);
+        }
+
+        // Check if the booking belongs to the user
+        if (booking.userId !== userId) {
+          throw new ValidationError("You don't have permission to view this booking");
+        }
+
+        return booking;
+      },
+      (error) => ErrorHandler.handleControllerError(error, `getBooking(${bookingId}, ${userId})`)
+    );
+  }
+
+  /**
+   * Updates a booking's status
+   */
+  static async updateBookingStatus(
+    bookingId: string,
+    status: BookingStatus
+  ): Promise<Booking> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        if (!bookingId) {
+          throw new ValidationError("Booking ID is required");
+        }
+
+        // Validate the status using the status update validator
+        const validation = BookingValidator.validateStatusUpdate({ status });
+        if (!validation.isValid) {
+          throw new ValidationError(`Invalid booking status: ${status}`);
+        }
+
+        // Check if booking exists
+        const bookingExists = await BookingService.bookingExists(bookingId);
+        if (!bookingExists) {
+          throw new NotFoundError(`Booking with ID ${bookingId} not found`);
+        }
+
+        return await BookingService.updateBookingStatus(bookingId, status);
+      },
+      (error) => ErrorHandler.handleControllerError(error, `updateBookingStatus(${bookingId}, ${status})`)
+    );
+  }
+
+  /**
+   * Updates a booking's payment status
+   */
+  static async updateBookingPaymentStatus(
+    bookingId: string,
+    paymentStatus: PaymentStatus
+  ): Promise<Booking> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        if (!bookingId) {
+          throw new ValidationError("Booking ID is required");
+        }
+
+        // Validate using the updateBookingSchema or implementing a separate validator
+        if (!["PAID", "UNPAID", "REFUNDED"].includes(paymentStatus)) {
+          throw new ValidationError(`Invalid payment status: ${paymentStatus}`);
+        }
+
+        // Check if booking exists
+        const bookingExists = await BookingService.bookingExists(bookingId);
+        if (!bookingExists) {
+          throw new NotFoundError(`Booking with ID ${bookingId} not found`);
+        }
+
+        return await BookingService.updateBookingPaymentStatus(bookingId, paymentStatus);
+      },
+      (error) => ErrorHandler.handleControllerError(error, `updateBookingPaymentStatus(${bookingId}, ${paymentStatus})`)
+    );
   }
 
   /**
    * Cancels a booking
-   * Validates cancellation rules and updates status
    */
-  static async cancelBooking(bookingId: string, userId: string) {
-    // 1. Get and validate booking
-    const booking = await this.getBooking(bookingId, userId);
+  static async cancelBooking(bookingId: string, userId: string): Promise<Booking> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        if (!bookingId) {
+          throw new ValidationError("Booking ID is required");
+        }
 
-    // 2. Check if booking can be cancelled
-    if (booking.status === "CANCELLED") {
-      throw new Error("Booking is already cancelled");
-    }
+        // Get the booking to check ownership
+        const booking = await BookingService.getBookingById(bookingId);
+        if (!booking) {
+          throw new NotFoundError(`Booking with ID ${bookingId} not found`);
+        }
 
-    // 3. Check if booking is in the future
-    const now = new Date();
-    const checkInDate = new Date(booking.checkInDate);
+        // Check if the booking belongs to the user
+        if (booking.userId !== userId) {
+          throw new ValidationError("You don't have permission to cancel this booking");
+        }
 
-    if (checkInDate < now) {
-      throw new Error("Cannot cancel past or current bookings");
-    }
-
-    // 4. Cancel the booking
-    return BookingRepository.updateBooking(bookingId, {
-      status: "CANCELLED",
-      paymentStatus: "REFUNDED",
-    });
+        return await BookingService.cancelBooking(bookingId);
+      },
+      (error) => ErrorHandler.handleControllerError(error, `cancelBooking(${bookingId})`)
+    );
   }
 
   /**
-   * Calculates the total price for a booking
-   * @param roomPrice - Price per night
-   * @param checkInDate - Check-in date
-   * @param checkOutDate - Check-out date
-   * @returns Total price for the stay
+   * Deletes a booking
    */
-  static calculateTotalPrice(
-    roomPrice: number,
-    checkInDate: string,
-    checkOutDate: string
-  ): number {
-    const startDate = new Date(checkInDate);
-    const endDate = new Date(checkOutDate);
-    const numberOfNights = Math.ceil(
-      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+  static async deleteBooking(bookingId: string): Promise<Booking> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        if (!bookingId) {
+          throw new ValidationError("Booking ID is required");
+        }
+
+        // Check if booking exists
+        const bookingExists = await BookingService.bookingExists(bookingId);
+        if (!bookingExists) {
+          throw new NotFoundError(`Booking with ID ${bookingId} not found`);
+        }
+
+        return await BookingService.deleteBooking(bookingId);
+      },
+      (error) => ErrorHandler.handleControllerError(error, `deleteBooking(${bookingId})`)
     );
-    return roomPrice * numberOfNights;
+  }
+
+  /**
+   * Checks if a booking exists
+   */
+  static async bookingExists(bookingId: string): Promise<boolean> {
+    try {
+      return await BookingService.bookingExists(bookingId);
+    } catch (error) {
+      return false;
+    }
   }
 }

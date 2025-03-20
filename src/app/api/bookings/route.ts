@@ -2,7 +2,7 @@
 
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/options";
+import { getAuthOptions } from "@/app/api/auth/[...nextauth]/options";
 import { BookingController } from "@/controllers/booking.controller";
 
 /**
@@ -10,6 +10,7 @@ import { BookingController } from "@/controllers/booking.controller";
  */
 export async function GET() {
   try {
+    const authOptions = await getAuthOptions();
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
@@ -32,6 +33,7 @@ export async function GET() {
  */
 export async function POST(request: Request) {
   try {
+    const authOptions = await getAuthOptions();
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
@@ -39,13 +41,36 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-
-    const booking = await BookingController.createBooking({
+    
+    // Add status field if not provided - this is required by the validation schema
+    const bookingData = {
       userId: session.user.id,
       ...body,
-    });
+      status: body.status || "CONFIRMED", // Default to CONFIRMED if not provided
+    };
+    
+    console.log("Creating booking with data:", JSON.stringify(bookingData));
 
-    return NextResponse.json(booking);
+    const bookingResult = await BookingController.createBooking(bookingData);
+    
+    // Manually extract only the data we need to return to the client
+    // to avoid Prisma serialization issues
+    const safeBooking = {
+      id: bookingResult.id,
+      userId: bookingResult.userId,
+      roomId: bookingResult.roomId,
+      checkInDate: bookingResult.checkInDate,
+      checkOutDate: bookingResult.checkOutDate,
+      numberOfGuests: bookingResult.numberOfGuests,
+      totalPrice: bookingResult.totalPrice,
+      status: bookingResult.status,
+      paymentStatus: bookingResult.paymentStatus,
+      createdAt: bookingResult.createdAt,
+    };
+    
+    console.log("Booking created successfully:", safeBooking.id);
+
+    return NextResponse.json(safeBooking);
   } catch (error) {
     console.error("[BOOKING_POST]", error);
     return new NextResponse(

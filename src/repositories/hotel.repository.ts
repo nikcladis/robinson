@@ -1,29 +1,18 @@
-import { prisma } from "@/helpers/prisma";
-import { Prisma } from "@prisma/client";
-import { DatabaseError } from "@/errors/database.error";
+import { getPrismaClientSync } from "@/helpers/prisma";
+import { Prisma, PrismaClient } from "@prisma/client";
+import { ErrorHandler } from "@/utils/error-handler";
+import { NotFoundError } from "@/errors";
 
 /**
  * Repository for handling hotel-related database operations
  */
 export class HotelRepository {
   /**
-   * Handles database operation errors
+   * Get a Prisma client instance
+   * @returns Promise resolving to a Prisma client or null
    */
-  private static handleError(error: unknown, operation: string): never {
-    console.error(`Database error during ${operation}:`, error);
-
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      switch (error.code) {
-        case "P2002":
-          throw new DatabaseError("Hotel with this name already exists");
-        case "P2025":
-          throw new DatabaseError("Hotel not found");
-        default:
-          throw new DatabaseError(`Database error: ${error.message}`, error);
-      }
-    }
-
-    throw new DatabaseError("Unexpected database error", error);
+  private static async getPrisma(): Promise<PrismaClient | null> {
+    return await getPrismaClientSync();
   }
 
   /**
@@ -39,6 +28,9 @@ export class HotelRepository {
   }) {
     try {
       console.log('Repository getAllHotels called with params:', params);
+      const prisma = await this.getPrisma();
+      if (!prisma) throw new Error("Database client not available");
+      
       const hotels = await prisma.hotel.findMany({
         where: {
           ...(params?.city && { city: params.city }),
@@ -93,8 +85,7 @@ export class HotelRepository {
       console.log(`Retrieved ${hotels.length} hotels from database`);
       return hotels;
     } catch (error) {
-      console.error('Error in getAllHotels repository method:', error);
-      throw error;
+      return ErrorHandler.handleRepositoryError(error, "getAllHotels");
     }
   }
 
@@ -103,6 +94,9 @@ export class HotelRepository {
    */
   static async getHotelById(id: string) {
     try {
+      const prisma = await this.getPrisma();
+      if (!prisma) throw new Error("Database client not available");
+      
       const hotel = await prisma.hotel.findUnique({
         where: { id },
         include: {
@@ -173,12 +167,12 @@ export class HotelRepository {
       });
 
       if (!hotel) {
-        throw new DatabaseError("Hotel not found");
+        throw new NotFoundError(`Hotel with ID ${id} not found`);
       }
 
       return hotel;
     } catch (error) {
-      return this.handleError(error, "getHotelById");
+      return ErrorHandler.handleRepositoryError(error, "getHotelById");
     }
   }
 
@@ -197,6 +191,9 @@ export class HotelRepository {
     imageUrl?: string;
   }) {
     try {
+      const prisma = await this.getPrisma();
+      if (!prisma) throw new Error("Database client not available");
+      
       return await prisma.hotel.create({
         data,
         include: {
@@ -204,7 +201,7 @@ export class HotelRepository {
         },
       });
     } catch (error) {
-      return this.handleError(error, "createHotel");
+      return ErrorHandler.handleRepositoryError(error, "createHotel");
     }
   }
 
@@ -225,6 +222,15 @@ export class HotelRepository {
     }
   ) {
     try {
+      const prisma = await this.getPrisma();
+      if (!prisma) throw new Error("Database client not available");
+      
+      // Check if hotel exists first
+      const exists = await prisma.hotel.findUnique({ where: { id } });
+      if (!exists) {
+        throw new NotFoundError(`Hotel with ID ${id} not found`);
+      }
+      
       return await prisma.hotel.update({
         where: { id },
         data,
@@ -233,7 +239,7 @@ export class HotelRepository {
         },
       });
     } catch (error) {
-      return this.handleError(error, "updateHotel");
+      return ErrorHandler.handleRepositoryError(error, "updateHotel");
     }
   }
 
@@ -242,11 +248,32 @@ export class HotelRepository {
    */
   static async deleteHotel(id: string) {
     try {
+      const prisma = await this.getPrisma();
+      if (!prisma) throw new Error("Database client not available");
+      
+      // Check if hotel exists first
+      const exists = await prisma.hotel.findUnique({ where: { id } });
+      if (!exists) {
+        throw new NotFoundError(`Hotel with ID ${id} not found`);
+      }
+      
       return await prisma.hotel.delete({
         where: { id },
       });
     } catch (error) {
-      return this.handleError(error, "deleteHotel");
+      return ErrorHandler.handleRepositoryError(error, "deleteHotel");
+    }
+  }
+  
+  /**
+   * Checks if a hotel exists
+   */
+  static async hotelExists(id: string): Promise<boolean> {
+    try {
+      const hotel = await this.getHotelById(id);
+      return !!hotel;
+    } catch (error) {
+      return false;
     }
   }
 }

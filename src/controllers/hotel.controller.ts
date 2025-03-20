@@ -1,9 +1,10 @@
-import { HotelRepository } from "@/repositories/hotel.repository";
+import { HotelService, CreateHotelParams } from "@/services/hotel.service";
 import { HotelValidator } from "@/validations/hotel.validation";
-import { notFound } from "next/navigation";
 import type { TransformedHotel, TransformedReview } from "@/models/hotel";
 import type { TransformedUser } from "@/models/user";
 import { Hotel, Review, User, Room } from "@prisma/client";
+import { ErrorHandler } from "@/utils/error-handler";
+import { ValidationError, NotFoundError } from "@/errors";
 
 /**
  * Controller for managing hotel-related business logic and flow
@@ -20,30 +21,49 @@ export class HotelController {
     limit?: number;
     offset?: number;
   }): Promise<TransformedHotel[]> {
-    console.log('Controller getAllHotels called with params:', params);
-    // Validate search parameters
-    const validation = HotelValidator.validateSearchParams(params || {});
-    if (!validation.isValid) {
-      throw new Error(validation.errors.join(", "));
-    }
+    return ErrorHandler.wrapAsync(
+      async () => {
+        console.log('Controller getAllHotels called with params:', params);
+        // Validate search parameters
+        const validation = HotelValidator.validateSearchParams(params || {});
+        if (!validation.isValid) {
+          throw new ValidationError(validation.errors.join(", "));
+        }
 
-    const hotels = await HotelRepository.getAllHotels(params);
-    console.log(`Controller received ${hotels.length} hotels from repository`);
-    const transformedHotels = hotels.map((hotel) => this.transformHotel(hotel));
-    console.log(`Controller transformed ${transformedHotels.length} hotels`);
-    return transformedHotels;
+        const hotels = await HotelService.getAllHotels(params);
+        console.log(`Controller received ${hotels.length} hotels from service`);
+        
+        // Transform each hotel to match the expected TransformedHotel type
+        const transformedHotels = hotels.map((hotel) => this.transformHotel(hotel as Hotel & {
+          reviews?: (Review & { user: Pick<User, "firstName" | "lastName"> })[];
+          rooms?: Room[];
+        }));
+        
+        console.log(`Controller transformed ${transformedHotels.length} hotels`);
+        return transformedHotels;
+      },
+      (error) => ErrorHandler.handleControllerError(error, "getAllHotels")
+    );
   }
 
   /**
    * Retrieves a specific hotel by ID
    */
   static async getHotelById(id: string): Promise<TransformedHotel> {
-    const hotel = await HotelRepository.getHotelById(id);
-    if (!hotel) {
-      notFound();
-    }
+    return ErrorHandler.wrapAsync(
+      async () => {
+        const hotel = await HotelService.getHotel(id);
+        if (!hotel) {
+          throw new NotFoundError(`Hotel with ID ${id} not found`);
+        }
 
-    return this.transformHotel(hotel);
+        return this.transformHotel(hotel as Hotel & {
+          reviews?: (Review & { user: Pick<User, "firstName" | "lastName"> })[];
+          rooms?: Room[];
+        });
+      }, 
+      (error) => ErrorHandler.handleControllerError(error, `getHotelById(${id})`)
+    );
   }
 
   /**
@@ -60,27 +80,36 @@ export class HotelController {
     amenities?: string[];
     imageUrl?: string;
   }) {
-    // Validate hotel data
-    const validation = HotelValidator.validateRequiredFields(data);
-    if (!validation.isValid) {
-      throw new Error(validation.errors.join(", "));
-    }
+    return ErrorHandler.wrapAsync(
+      async () => {
+        // Validate required fields
+        const validation = HotelValidator.validateRequiredFields(data);
+        if (!validation.isValid) {
+          throw new ValidationError(validation.errors.join(", "));
+        }
 
-    // Format data before saving
-    const formattedData = {
-      ...data,
-      name: data.name.trim(),
-      description: data.description.trim(),
-      city: data.city.trim(),
-      country: data.country.trim(),
-      address: data.address.trim(),
-      postalCode: data.postalCode.trim(),
-      amenities: data.amenities?.filter((a) => a.trim()) || [],
-      imageUrl: data.imageUrl?.trim(),
-    };
+        // Format data before sending to service
+        const formattedData: CreateHotelParams = {
+          name: data.name.trim(),
+          description: data.description.trim(),
+          city: data.city.trim(),
+          country: data.country.trim(),
+          address: data.address.trim(),
+          postalCode: data.postalCode.trim(),
+          starRating: data.starRating,
+          amenities: data.amenities || [],
+          imageUrl: data.imageUrl?.trim() || "",
+        };
 
-    const hotel = await HotelRepository.createHotel(formattedData);
-    return this.transformHotel(hotel);
+        const hotel = await HotelService.createHotel(formattedData);
+        
+        return this.transformHotel(hotel as Hotel & {
+          reviews?: (Review & { user: Pick<User, "firstName" | "lastName"> })[];
+          rooms?: Room[];
+        });
+      },
+      (error) => ErrorHandler.handleControllerError(error, "createHotel")
+    );
   }
 
   /**
@@ -100,54 +129,77 @@ export class HotelController {
       imageUrl?: string;
     }
   ) {
-    if (!id?.trim()) {
-      throw new Error("Hotel ID is required");
-    }
+    return ErrorHandler.wrapAsync(
+      async () => {
+        if (!id?.trim()) {
+          throw new ValidationError("Hotel ID is required");
+        }
 
-    // Validate update data
-    const validation = HotelValidator.validateUpdateData(data);
-    if (!validation.isValid) {
-      throw new Error(validation.errors.join(", "));
-    }
+        // Validate update data
+        const validation = HotelValidator.validateUpdateData(data);
+        if (!validation.isValid) {
+          throw new ValidationError(validation.errors.join(", "));
+        }
 
-    // Format data before updating
-    const formattedData = {
-      ...data,
-      name: data.name?.trim(),
-      description: data.description?.trim(),
-      city: data.city?.trim(),
-      country: data.country?.trim(),
-      address: data.address?.trim(),
-      postalCode: data.postalCode?.trim(),
-      amenities: data.amenities?.filter((a) => a.trim()),
-      imageUrl: data.imageUrl?.trim(),
-    };
+        // Format data before updating
+        const formattedData: Partial<CreateHotelParams> = {
+          name: data.name?.trim(),
+          description: data.description?.trim(),
+          city: data.city?.trim(),
+          country: data.country?.trim(),
+          address: data.address?.trim(),
+          postalCode: data.postalCode?.trim(),
+          starRating: data.starRating,
+          amenities: data.amenities,
+          imageUrl: data.imageUrl?.trim(),
+        };
+        
+        const hotel = await HotelService.updateHotel(id, formattedData);
+        if (!hotel) {
+          throw new NotFoundError(`Hotel with ID ${id} not found`);
+        }
 
-    const hotel = await HotelRepository.updateHotel(id, formattedData);
-    if (!hotel) {
-      notFound();
-    }
-
-    return this.transformHotel(hotel);
+        return this.transformHotel(hotel as Hotel & {
+          reviews?: (Review & { user: Pick<User, "firstName" | "lastName"> })[];
+          rooms?: Room[];
+        });
+      },
+      (error) => ErrorHandler.handleControllerError(error, `updateHotel(${id})`)
+    );
   }
 
   /**
    * Deletes a hotel
    */
   static async deleteHotel(id: string) {
-    if (!id?.trim()) {
-      throw new Error("Hotel ID is required");
+    return ErrorHandler.wrapAsync(
+      async () => {
+        if (!id?.trim()) {
+          throw new ValidationError("Hotel ID is required");
+        }
+
+        // Call deleteHotel which returns void
+        await HotelService.deleteHotel(id);
+        
+        // Return success as deleteHotel doesn't return a hotel object
+        return { success: true, id };
+      },
+      (error) => ErrorHandler.handleControllerError(error, `deleteHotel(${id})`)
+    );
+  }
+  
+  /**
+   * Checks if a hotel exists without throwing a notFound error
+   * @param id - The hotel ID to check
+   * @returns Promise resolving to true if the hotel exists, false otherwise
+   */
+  static async hotelExists(id: string): Promise<boolean> {
+    try {
+      const hotel = await HotelService.getHotel(id);
+      return !!hotel;
+    } catch (error) {
+      return false;
     }
-
-    // Check if hotel exists before deletion
-    await HotelRepository.getHotelById(id);
-
-    const hotel = await HotelRepository.deleteHotel(id);
-    if (!hotel) {
-      notFound();
-    }
-
-    return this.transformHotel(hotel);
   }
 
   /**

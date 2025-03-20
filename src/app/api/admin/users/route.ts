@@ -1,7 +1,7 @@
 "use server";
 
 import { NextResponse } from "next/server";
-import { prisma } from "@/helpers/prisma";
+import { getPrismaClientSync } from "@/helpers/prisma";
 import { requireAdmin } from "@/middleware";
 
 /**
@@ -12,6 +12,14 @@ export async function GET() {
     // Check if the user is admin
     const adminCheck = await requireAdmin();
     if (adminCheck) return adminCheck; // Returns 401 if not admin
+
+    const prisma = await getPrismaClientSync();
+    if (!prisma) {
+      return NextResponse.json(
+        { error: "Database connection error" },
+        { status: 500 }
+      );
+    }
 
     const users = await prisma.user.findMany({
       select: {

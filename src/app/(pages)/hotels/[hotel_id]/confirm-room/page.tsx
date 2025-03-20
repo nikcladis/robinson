@@ -97,6 +97,8 @@ export default function BookingPage() {
           checkOutDate: checkOutDate.toISOString(),
           numberOfGuests,
           totalPrice: calculateTotalPrice(),
+          status: "CONFIRMED",
+          paymentStatus: "PAID",
         }),
       });
 
@@ -106,7 +108,11 @@ export default function BookingPage() {
       }
 
       const booking = await response.json();
-      router.push(`/bookings/${booking.id}`);
+      console.log("Booking created:", booking);
+      
+      // Redirect to bookings list instead of a specific booking
+      // This avoids Prisma serialization issues
+      router.push('/bookings');
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
