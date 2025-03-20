@@ -1,5 +1,8 @@
 import { getPrismaClientSync } from "@/helpers/prisma";
-import { Booking, PrismaClient } from "@prisma/client";
+import { Booking, PrismaClient, BookingStatus, PaymentStatus } from "@prisma/client";
+import { ErrorHandler } from "@/utils/error-handler";
+import { DatabaseError, NotFoundError } from "@/errors";
+// Note: Formatting functions (formatDate, getStatusBadgeClass, etc.) have been moved to src/utils/format-utils.ts
 
 /**
  * Parameters for creating a new booking
@@ -20,6 +23,8 @@ export interface CreateBookingParams {
 
 /**
  * BookingService handles database operations and business logic for bookings
+ * Note: UI formatting utilities like formatDate(), getStatusBadgeClass(), etc. 
+ * have been moved to src/utils/format-utils.ts
  */
 export class BookingService {
   /**
@@ -33,149 +38,232 @@ export class BookingService {
   /**
    * Fetch all bookings with related entities
    */
-  static async getAllBookings() {
-    const prisma = await BookingService.getPrisma();
-    if (!prisma) throw new Error("Database client not available");
-    
-    const bookings = await prisma.booking.findMany({
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        room: {
+  static async getAllBookings(params?: {
+    status?: BookingStatus;
+    paymentStatus?: PaymentStatus;
+    fromDate?: Date;
+    toDate?: Date;
+    userId?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<Booking[]> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        const prisma = await BookingService.getPrisma();
+        if (!prisma) throw new DatabaseError("Database client not available");
+        
+        // Build the where clause based on params
+        const where: any = {};
+        if (params) {
+          if (params.status) where.status = params.status;
+          if (params.paymentStatus) where.paymentStatus = params.paymentStatus;
+          if (params.userId) where.userId = params.userId;
+          
+          // Date filtering
+          if (params.fromDate || params.toDate) {
+            where.checkInDate = {};
+            if (params.fromDate) where.checkInDate.gte = params.fromDate;
+            if (params.toDate) where.checkOutDate = { lte: params.toDate };
+          }
+        }
+        
+        const bookings = await prisma.booking.findMany({
+          where,
+          take: params?.limit,
+          skip: params?.offset,
           include: {
-            hotel: {
+            user: {
               select: {
                 id: true,
-                name: true,
-                city: true,
-                country: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+            room: {
+              include: {
+                hotel: {
+                  select: {
+                    id: true,
+                    name: true,
+                    city: true,
+                    country: true,
+                  },
+                },
               },
             },
           },
-        },
+          orderBy: {
+            createdAt: "desc",
+          },
+        });
+        
+        // Convert Prisma model instances to plain objects
+        return JSON.parse(JSON.stringify(bookings));
       },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-    
-    // Convert Prisma model instances to plain objects
-    return JSON.parse(JSON.stringify(bookings));
+      (error) => ErrorHandler.handleServiceError(error, "getAllBookings")
+    );
   }
 
   /**
    * Fetch a single booking by ID with related entities
    */
-  static async getBookingById(bookingId: string) {
-    const prisma = await BookingService.getPrisma();
-    if (!prisma) throw new Error("Database client not available");
-    
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        room: {
+  static async getBookingById(bookingId: string): Promise<Booking | null> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        const prisma = await BookingService.getPrisma();
+        if (!prisma) throw new DatabaseError("Database client not available");
+        
+        const booking = await prisma.booking.findUnique({
+          where: { id: bookingId },
           include: {
-            hotel: {
+            user: {
               select: {
                 id: true,
-                name: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+            room: {
+              include: {
+                hotel: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
           },
-        },
+        });
+        
+        if (!booking) return null;
+        
+        // Convert Prisma model instance to plain object
+        return JSON.parse(JSON.stringify(booking));
       },
-    });
-    
-    if (!booking) return null;
-    
-    // Convert Prisma model instance to plain object
-    return JSON.parse(JSON.stringify(booking));
+      (error) => ErrorHandler.handleServiceError(error, `getBookingById(${bookingId})`)
+    );
   }
 
   /**
    * Update a booking's status
    */
-  static async updateBookingStatus(bookingId: string, status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED") {
-    const prisma = await BookingService.getPrisma();
-    if (!prisma) throw new Error("Database client not available");
-    
-    const updated = await prisma.booking.update({
-      where: { id: bookingId },
-      data: { status },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        room: {
+  static async updateBookingStatus(bookingId: string, status: BookingStatus): Promise<Booking> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        const prisma = await BookingService.getPrisma();
+        if (!prisma) throw new DatabaseError("Database client not available");
+        
+        const updated = await prisma.booking.update({
+          where: { id: bookingId },
+          data: { status },
           include: {
-            hotel: {
+            user: {
               select: {
                 id: true,
-                name: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+            room: {
+              include: {
+                hotel: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
           },
-        },
+        });
+        
+        // Convert Prisma model instance to plain object
+        return JSON.parse(JSON.stringify(updated));
       },
-    });
-    
-    // Convert Prisma model instance to plain object
-    return JSON.parse(JSON.stringify(updated));
+      (error) => ErrorHandler.handleServiceError(error, `updateBookingStatus(${bookingId}, ${status})`)
+    );
+  }
+
+  /**
+   * Update a booking's payment status
+   */
+  static async updateBookingPaymentStatus(bookingId: string, paymentStatus: PaymentStatus): Promise<Booking> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        const prisma = await BookingService.getPrisma();
+        if (!prisma) throw new DatabaseError("Database client not available");
+        
+        const updated = await prisma.booking.update({
+          where: { id: bookingId },
+          data: { paymentStatus },
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+            room: {
+              include: {
+                hotel: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+        
+        // Convert Prisma model instance to plain object
+        return JSON.parse(JSON.stringify(updated));
+      },
+      (error) => ErrorHandler.handleServiceError(error, `updateBookingPaymentStatus(${bookingId}, ${paymentStatus})`)
+    );
   }
 
   /**
    * Delete a booking
    */
-  static async deleteBooking(bookingId: string) {
-    const prisma = await BookingService.getPrisma();
-    if (!prisma) throw new Error("Database client not available");
-    
-    return prisma.booking.delete({
-      where: { id: bookingId },
-    });
+  static async deleteBooking(bookingId: string): Promise<Booking> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        const prisma = await BookingService.getPrisma();
+        if (!prisma) throw new DatabaseError("Database client not available");
+        
+        const deleted = await prisma.booking.delete({
+          where: { id: bookingId },
+        });
+        
+        return deleted;
+      },
+      (error) => ErrorHandler.handleServiceError(error, `deleteBooking(${bookingId})`)
+    );
   }
 
   /**
    * Check if a booking exists
    */
-  static async bookingExists(bookingId: string) {
-    const prisma = await BookingService.getPrisma();
-    if (!prisma) throw new Error("Database client not available");
-    
-    const count = await prisma.booking.count({
-      where: { id: bookingId },
-    });
-    return count > 0;
-  }
-
-  /**
-   * Calculate nights between two dates
-   */
-  static calculateNights(checkInDate: string, checkOutDate: string): number {
-    const checkIn = new Date(checkInDate);
-    const checkOut = new Date(checkOutDate);
-    const diffTime = checkOut.getTime() - checkIn.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+  static async bookingExists(bookingId: string): Promise<boolean> {
+    try {
+      const prisma = await BookingService.getPrisma();
+      if (!prisma) throw new DatabaseError("Database client not available");
+      
+      const count = await prisma.booking.count({
+        where: { id: bookingId },
+      });
+      return count > 0;
+    } catch (error) {
+      console.error(`Error checking if booking ${bookingId} exists:`, error);
+      return false;
+    }
   }
 
   /**
@@ -192,225 +280,185 @@ export class BookingService {
     numberOfGuests: number;
     totalPrice: number;
     specialRequests?: string;
-    status?: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
-    paymentStatus?: "PAID" | "UNPAID" | "REFUNDED";
+    status?: BookingStatus;
+    paymentStatus?: PaymentStatus;
   }): Promise<Booking> {
-    const prisma = await BookingService.getPrisma();
-    if (!prisma) throw new Error("Database client not available");
-    
-    try {
-      console.log("BookingService.createBooking called with:", JSON.stringify(data));
-      
-      // Create the booking with PENDING status by default
-      const booking = await prisma.booking.create({
-        data: {
-          userId: data.userId,
-          roomId: data.roomId,
-          checkInDate: new Date(data.checkInDate),
-          checkOutDate: new Date(data.checkOutDate),
-          numberOfGuests: data.numberOfGuests,
-          totalPrice: data.totalPrice,
-          specialRequests: data.specialRequests || "",
-          status: data.status || "PENDING", // Use provided status or default to PENDING
-          paymentStatus: data.paymentStatus || "UNPAID", // Use provided payment status or default to UNPAID
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
+    return ErrorHandler.wrapAsync(
+      async () => {
+        const prisma = await BookingService.getPrisma();
+        if (!prisma) throw new DatabaseError("Database client not available");
+        
+        console.log("BookingService.createBooking called with:", JSON.stringify(data));
+        
+        // Create the booking with PENDING status by default
+        const booking = await prisma.booking.create({
+          data: {
+            userId: data.userId,
+            roomId: data.roomId,
+            checkInDate: new Date(data.checkInDate),
+            checkOutDate: new Date(data.checkOutDate),
+            numberOfGuests: data.numberOfGuests,
+            totalPrice: data.totalPrice,
+            specialRequests: data.specialRequests || "",
+            status: data.status || "PENDING", // Use provided status or default to PENDING
+            paymentStatus: data.paymentStatus || "UNPAID", // Use provided payment status or default to UNPAID
           },
-          room: {
-            include: {
-              hotel: {
-                select: {
-                  id: true,
-                  name: true,
-                  city: true,
-                  country: true,
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+            room: {
+              include: {
+                hotel: {
+                  select: {
+                    id: true,
+                    name: true,
+                    city: true,
+                    country: true,
+                  },
                 },
               },
             },
           },
-        },
-      });
-      
-      console.log("Booking created successfully:", booking.id);
-      
-      // Convert to plain object to avoid Prisma serialization issues
-      return JSON.parse(JSON.stringify(booking));
-    } catch (error) {
-      console.error("Error creating booking:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Cancels an existing booking
-   * @param bookingId - ID of the booking to cancel
-   * @returns Promise resolving to the updated booking with cancelled status
-   * @throws Error if the cancellation fails
-   */
-  static async cancelBooking(bookingId: string): Promise<Booking> {
-    const response = await fetch(`/api/bookings/${bookingId}`, {
-      method: "PATCH",
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || "Failed to cancel booking");
-    }
-
-    return response.json();
-  }
-
-  /**
-   * Checks if a booking can be cancelled
-   * A booking is cancellable if:
-   * 1. It's not already cancelled
-   * 2. The check-in date hasn't passed
-   * @param booking - The booking to check
-   * @returns Boolean indicating if the booking can be cancelled
-   */
-  static isBookingCancellable(booking: Booking): boolean {
-    return (
-      booking.status !== "CANCELLED" &&
-      new Date(booking.checkInDate) > new Date()
+        });
+        
+        console.log("Booking created successfully:", booking.id);
+        
+        // Convert to plain object to avoid Prisma serialization issues
+        return JSON.parse(JSON.stringify(booking));
+      },
+      (error) => ErrorHandler.handleServiceError(error, "createBooking")
     );
   }
 
   /**
-   * Formats a date string or Date object into a human-readable format
-   * @param dateString - Date to format (ISO string or Date object)
-   * @returns Formatted date string (e.g., "January 1, 2024")
+   * Cancel a booking by setting its status to CANCELLED
    */
-  static formatDate(dateString: string | Date): string {
-    const date =
-      typeof dateString === "string" ? new Date(dateString) : dateString;
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+  static async cancelBooking(bookingId: string): Promise<Booking> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        const booking = await BookingService.getBookingById(bookingId);
+        if (!booking) {
+          throw new NotFoundError(`Booking with ID ${bookingId} not found`);
+        }
+        
+        if (!BookingService.isBookingCancellable(booking)) {
+          throw new Error("This booking cannot be cancelled");
+        }
+        
+        return await BookingService.updateBookingStatus(bookingId, "CANCELLED");
+      },
+      (error) => ErrorHandler.handleServiceError(error, `cancelBooking(${bookingId})`)
+    );
   }
 
   /**
-   * Gets the CSS classes for styling a booking status badge
-   * @param status - Booking status (CONFIRMED, PENDING, CANCELLED, COMPLETED)
-   * @returns CSS classes for the status badge
+   * Check if a booking can be cancelled
    */
-  static getStatusBadgeClass(status: string): string {
-    switch (status) {
-      case "CONFIRMED":
-        return "bg-green-100 text-green-800";
-      case "PENDING":
-        return "bg-yellow-100 text-yellow-800";
-      case "CANCELLED":
-        return "bg-red-100 text-red-800";
-      case "COMPLETED":
-        return "bg-blue-100 text-blue-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+  static isBookingCancellable(booking: Booking): boolean {
+    // A booking can only be cancelled if it's in PENDING or CONFIRMED status
+    // and it's not in the past
+    if (booking.status === "CANCELLED" || booking.status === "COMPLETED") {
+      return false;
     }
-  }
-
-  /**
-   * Gets the CSS classes for styling a payment status badge
-   * @param status - Payment status (PAID, UNPAID, REFUNDED)
-   * @returns CSS classes for the payment status badge
-   */
-  static getPaymentStatusBadgeClass(status: string): string {
-    switch (status) {
-      case "PAID":
-        return "bg-green-100 text-green-800";
-      case "UNPAID":
-        return "bg-red-100 text-red-800";
-      case "REFUNDED":
-        return "bg-blue-100 text-blue-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
+    
+    const checkInDate = new Date(booking.checkInDate);
+    const now = new Date();
+    
+    return checkInDate > now;
   }
 
   /**
    * Fetch bookings for a specific user
    */
-  static async getUserBookings(userId: string) {
-    const prisma = await BookingService.getPrisma();
-    if (!prisma) throw new Error("Database client not available");
-    
-    const bookings = await prisma.booking.findMany({
-      where: { userId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        room: {
+  static async getUserBookings(userId: string): Promise<Booking[]> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        const prisma = await BookingService.getPrisma();
+        if (!prisma) throw new DatabaseError("Database client not available");
+        
+        const bookings = await prisma.booking.findMany({
+          where: { userId },
           include: {
-            hotel: {
+            user: {
               select: {
                 id: true,
-                name: true,
-                city: true,
-                country: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+            room: {
+              include: {
+                hotel: {
+                  select: {
+                    id: true,
+                    name: true,
+                    city: true,
+                    country: true,
+                  },
+                },
               },
             },
           },
-        },
+          orderBy: {
+            createdAt: "desc",
+          },
+        });
+        
+        // Convert Prisma model instances to plain objects
+        return JSON.parse(JSON.stringify(bookings));
       },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-    
-    // Convert Prisma model instances to plain objects
-    return JSON.parse(JSON.stringify(bookings));
+      (error) => ErrorHandler.handleServiceError(error, `getUserBookings(${userId})`)
+    );
   }
 
   /**
    * Fetch a single booking by ID for a user
    */
-  static async getBooking(bookingId: string) {
-    const prisma = await BookingService.getPrisma();
-    if (!prisma) throw new Error("Database client not available");
-    
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        room: {
+  static async getBooking(bookingId: string): Promise<Booking | null> {
+    return ErrorHandler.wrapAsync(
+      async () => {
+        const prisma = await BookingService.getPrisma();
+        if (!prisma) throw new DatabaseError("Database client not available");
+        
+        const booking = await prisma.booking.findUnique({
+          where: { id: bookingId },
           include: {
-            hotel: {
+            user: {
               select: {
                 id: true,
-                name: true,
-                city: true,
-                country: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+            room: {
+              include: {
+                hotel: {
+                  select: {
+                    id: true,
+                    name: true,
+                    city: true,
+                    country: true,
+                  },
+                },
               },
             },
           },
-        },
+        });
+        
+        if (!booking) return null;
+        
+        // Convert Prisma model instance to plain object
+        return JSON.parse(JSON.stringify(booking));
       },
-    });
-    
-    if (!booking) return null;
-    
-    // Convert Prisma model instance to plain object
-    return JSON.parse(JSON.stringify(booking));
+      (error) => ErrorHandler.handleServiceError(error, `getBooking(${bookingId})`)
+    );
   }
 }
