@@ -1,5 +1,5 @@
 import { getPrismaClientSync } from "@/helpers/prisma";
-import { Prisma, PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { ErrorHandler } from "@/utils/error-handler";
 import { NotFoundError } from "@/errors";
 
@@ -272,7 +272,7 @@ export class HotelRepository {
     try {
       const hotel = await this.getHotelById(id);
       return !!hotel;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

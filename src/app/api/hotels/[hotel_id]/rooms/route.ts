@@ -8,13 +8,18 @@ import { createRoomSchema } from "@/validations/room.validation";
 import { ApiResponse } from "@/utils/api-response";
 import { ValidationError, NotFoundError, AuthorizationError } from "@/errors";
 
+// Define params as a Promise type
+type Params = Promise<{ hotel_id: string }>;
+
 /**
  * Get all rooms for a hotel
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { hotel_id: string } }
+  context: { params: Params }
 ) {
+  // Await the params
+  const params = await context.params;
   const { hotel_id } = params;
   
   return ApiResponse.handle(async () => {
@@ -42,8 +47,10 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { hotel_id: string } }
+  context: { params: Params }
 ) {
+  // Await the params
+  const params = await context.params;
   const { hotel_id } = params;
   
   return ApiResponse.handle(async () => {

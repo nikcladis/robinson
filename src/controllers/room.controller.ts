@@ -84,7 +84,7 @@ export class RoomController {
         }
         
         // Format data before updating
-        const formattedData: any = { ...data };
+        const formattedData: UpdateRoomParams = { ...data };
         if (data.roomNumber) formattedData.roomNumber = data.roomNumber.trim();
         if (data.roomType) formattedData.roomType = data.roomType as RoomType;
         if (data.amenities) formattedData.amenities = data.amenities.filter(a => a.trim());
@@ -125,7 +125,7 @@ export class RoomController {
     try {
       const room = await this.getRoomById(id);
       return !!room;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

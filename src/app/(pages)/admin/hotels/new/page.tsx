@@ -9,6 +9,7 @@ import {
   initialCreateHotelData,
   validateFormData
 } from "@/validations/hotel.validation";
+import Image from "next/image";
 
 // Define a type from the Zod schema
 type HotelFormData = z.infer<typeof createHotelSchema>;
@@ -271,11 +272,12 @@ export default function NewHotelPage() {
                 <p className="mt-1 text-sm text-red-600">{validationErrors.imageUrl}</p>
               )}
               {formData.imageUrl && (
-                <div className="mt-2">
-                  <img 
+                <div className="mt-2 relative h-32 w-48">
+                  <Image 
                     src={formData.imageUrl} 
                     alt="Hotel preview" 
-                    className="h-32 w-auto object-cover rounded-md"
+                    fill
+                    className="object-cover rounded-md"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.src = "https://via.placeholder.com/300x200?text=Invalid+Image+URL";

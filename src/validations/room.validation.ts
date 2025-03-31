@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { RoomType } from "@prisma/client";
+import { CreateRoomParams, UpdateRoomParams } from "@/services/room.service";
 
 /**
  * Schema for creating a new room
@@ -44,7 +44,7 @@ export class RoomValidator {
   /**
    * Validates required fields for room creation
    */
-  static validateRequiredFields(data: any): { isValid: boolean; errors: string[] } {
+  static validateRequiredFields(data: Partial<CreateRoomParams>): { isValid: boolean; errors: string[] } {
     try {
       createRoomSchema.parse(data);
       return { isValid: true, errors: [] };
@@ -58,7 +58,7 @@ export class RoomValidator {
   /**
    * Validates data for room updates
    */
-  static validateUpdateData(data: any): { isValid: boolean; errors: string[] } {
+  static validateUpdateData(data: Partial<UpdateRoomParams>): { isValid: boolean; errors: string[] } {
     try {
       updateRoomSchema.parse(data);
       return { isValid: true, errors: [] };

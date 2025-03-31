@@ -197,7 +197,7 @@ export class HotelController {
     try {
       const hotel = await HotelService.getHotel(id);
       return !!hotel;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

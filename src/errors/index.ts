@@ -6,7 +6,7 @@ export class AppError extends Error {
     message: string,
     public readonly code: string = 'APP_ERROR',
     public readonly statusCode: number = 500,
-    public readonly details?: any
+    public readonly details?: Record<string, unknown>
   ) {
     super(message);
     this.name = this.constructor.name;
@@ -36,7 +36,7 @@ export class AppError extends Error {
  * Validation error - thrown when incoming data doesn't meet requirements
  */
 export class ValidationError extends AppError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: Record<string, unknown>) {
     super(message, 'VALIDATION_ERROR', 400, details);
   }
 }
@@ -45,7 +45,7 @@ export class ValidationError extends AppError {
  * Database error - thrown when database operations fail
  */
 export class DatabaseError extends AppError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: Record<string, unknown>) {
     super(message, 'DATABASE_ERROR', 500, details);
   }
 }
@@ -54,7 +54,7 @@ export class DatabaseError extends AppError {
  * Not found error - thrown when a requested resource doesn't exist
  */
 export class NotFoundError extends AppError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: Record<string, unknown>) {
     super(message, 'NOT_FOUND', 404, details);
   }
 }
@@ -63,8 +63,8 @@ export class NotFoundError extends AppError {
  * Authentication error - thrown when authentication fails
  */
 export class AuthenticationError extends AppError {
-  constructor(message: string, details?: any) {
-    super(message, 'AUTH_ERROR', 401, details);
+  constructor(message: string, details?: Record<string, unknown>) {
+    super(message, 'AUTHENTICATION_ERROR', 401, details);
   }
 }
 
@@ -72,8 +72,8 @@ export class AuthenticationError extends AppError {
  * Authorization error - thrown when a user lacks permissions
  */
 export class AuthorizationError extends AppError {
-  constructor(message: string, details?: any) {
-    super(message, 'FORBIDDEN', 403, details);
+  constructor(message: string, details?: Record<string, unknown>) {
+    super(message, 'AUTHORIZATION_ERROR', 403, details);
   }
 }
 
@@ -81,8 +81,8 @@ export class AuthorizationError extends AppError {
  * Conflict error - thrown when a resource already exists
  */
 export class ConflictError extends AppError {
-  constructor(message: string, details?: any) {
-    super(message, 'CONFLICT', 409, details);
+  constructor(message: string, details?: Record<string, unknown>) {
+    super(message, 'CONFLICT_ERROR', 409, details);
   }
 }
 
@@ -90,7 +90,7 @@ export class ConflictError extends AppError {
  * External service error - thrown when an external API call fails
  */
 export class ExternalServiceError extends AppError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: Record<string, unknown>) {
     super(message, 'EXTERNAL_SERVICE_ERROR', 502, details);
   }
 } 

@@ -4,11 +4,13 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { HotelController } from "@/controllers/hotel.controller";
+import { Hotel } from "@/models/hotel";
 import { 
   updateHotelSchema, 
   initialUpdateHotelData,
   validateFormData
 } from "@/validations/hotel.validation";
+import Image from "next/image";
 
 // Define a type from the Zod schema
 type HotelFormData = z.infer<typeof updateHotelSchema>;
@@ -40,8 +42,10 @@ export default function EditHotelForm({ hotelId }: EditHotelFormProps) {
         const responseData = await HotelController.getHotelById(hotelId);
         
         // Handle response format (API returns {success: true, data: hotel} or direct hotel object)
-        // Need to use type assertion since the response format varies
-        const hotel = (responseData as any).data || responseData;
+        // Need to use type assertion for response format flexibility
+        const hotel = 'data' in responseData 
+          ? responseData.data as Hotel 
+          : responseData as Hotel;
         
         console.log('Received hotel data:', hotel);
         
@@ -141,7 +145,9 @@ export default function EditHotelForm({ hotelId }: EditHotelFormProps) {
         imageUrl: formData.imageUrl || ""
       };
       
-      const updatedHotel = await HotelController.updateHotel(hotelId, hotelData);
+      // Update the hotel and store the result in a variable for logging purposes
+      await HotelController.updateHotel(hotelId, hotelData);
+      // Redirect after successful update
       router.push("/admin/hotels");
       router.refresh();
     } catch (err) {
@@ -325,11 +331,12 @@ export default function EditHotelForm({ hotelId }: EditHotelFormProps) {
               <p className="mt-1 text-sm text-red-600">{validationErrors.imageUrl}</p>
             )}
             {formData.imageUrl && (
-              <div className="mt-2">
-                <img 
+              <div className="mt-2 relative h-32 w-48">
+                <Image 
                   src={formData.imageUrl} 
                   alt="Hotel preview" 
-                  className="h-32 w-auto object-cover rounded-md"
+                  fill
+                  className="object-cover rounded-md"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.src = "https://via.placeholder.com/300x200?text=Invalid+Image+URL";

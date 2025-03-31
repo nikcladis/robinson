@@ -5,6 +5,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import { BookingController } from "@/controllers/booking.controller";
 
+// Define params as a Promise type
+type Params = Promise<{ booking_id: string }>;
+
 /**
  * Validates a UUID format
  */
@@ -16,7 +19,7 @@ function isValidUUID(uuid: string): boolean {
 
 export async function GET(
   request: Request,
-  { params }: { params: { booking_id: string } }
+  context: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -25,12 +28,16 @@ export async function GET(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    if (!isValidUUID(params.booking_id)) {
+    // Await the params
+    const params = await context.params;
+    const booking_id = params.booking_id;
+
+    if (!isValidUUID(booking_id)) {
       return new NextResponse("Invalid booking ID format", { status: 400 });
     }
 
     const booking = await BookingController.getBooking(
-      params.booking_id,
+      booking_id,
       session.user.id
     );
     return NextResponse.json(booking);
@@ -45,7 +52,7 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { booking_id: string } }
+  context: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -54,12 +61,16 @@ export async function PATCH(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    if (!isValidUUID(params.booking_id)) {
+    // Await the params
+    const params = await context.params;
+    const booking_id = params.booking_id;
+
+    if (!isValidUUID(booking_id)) {
       return new NextResponse("Invalid booking ID format", { status: 400 });
     }
 
     const booking = await BookingController.cancelBooking(
-      params.booking_id,
+      booking_id,
       session.user.id
     );
     return NextResponse.json(booking);

@@ -5,6 +5,9 @@ import { UserRole } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { getAuthOptions } from "@/app/api/auth/[...nextauth]/options";
 
+// Define params as a Promise type
+type Params = Promise<{ user_id: string }>;
+
 // Define Prisma error type
 interface PrismaError {
   code?: string;
@@ -17,14 +20,15 @@ interface PrismaError {
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { user_id: string } }
+  context: { params: Params }
 ) {
   try {
     // Check if the user is admin
     const adminCheck = await requireAdmin();
     if (adminCheck) return adminCheck; // Returns 401 if not admin
 
-    // Extract userId from params
+    // Await the params and extract userId
+    const params = await context.params;
     const user_id = params.user_id;
     
     const prisma = await getPrismaClientSync();
@@ -79,18 +83,19 @@ export async function PATCH(
 }
 
 /**
- * DELETE handler for deleting a user (admin only)
+ * DELETE handler for removing a user (admin only)
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { user_id: string } }
+  context: { params: Params }
 ) {
   try {
     // Check if the user is admin
     const adminCheck = await requireAdmin();
     if (adminCheck) return adminCheck; // Returns 401 if not admin
-
-    // Extract userId from params
+      
+    // Await the params and extract userId
+    const params = await context.params;
     const user_id = params.user_id;
 
     const prisma = await getPrismaClientSync();

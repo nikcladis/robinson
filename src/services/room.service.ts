@@ -167,7 +167,7 @@ export class RoomService {
     try {
       const response = await fetch(`/api/hotels/${hotelId}/rooms/${roomId}`);
       return response.ok;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

@@ -256,7 +256,7 @@ export class BookingController {
   static async bookingExists(bookingId: string): Promise<boolean> {
     try {
       return await BookingService.bookingExists(bookingId);
-    } catch (error) {
+    } catch {
       return false;
     }
   }

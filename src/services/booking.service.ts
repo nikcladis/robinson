@@ -53,7 +53,17 @@ export class BookingService {
         if (!prisma) throw new DatabaseError("Database client not available");
         
         // Build the where clause based on params
-        const where: any = {};
+        interface WhereClause {
+          status?: BookingStatus;
+          paymentStatus?: PaymentStatus;
+          userId?: string;
+          AND?: Array<{
+            checkInDate?: { gte?: Date };
+            checkOutDate?: { lte?: Date };
+          }>;
+        }
+        
+        const where: WhereClause = {};
         if (params) {
           if (params.status) where.status = params.status;
           if (params.paymentStatus) where.paymentStatus = params.paymentStatus;
@@ -61,9 +71,9 @@ export class BookingService {
           
           // Date filtering
           if (params.fromDate || params.toDate) {
-            where.checkInDate = {};
-            if (params.fromDate) where.checkInDate.gte = params.fromDate;
-            if (params.toDate) where.checkOutDate = { lte: params.toDate };
+            where.AND = [];
+            if (params.fromDate) where.AND.push({ checkInDate: { gte: params.fromDate } });
+            if (params.toDate) where.AND.push({ checkOutDate: { lte: params.toDate } });
           }
         }
         

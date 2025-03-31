@@ -31,7 +31,17 @@ export class BookingRepository {
       const prisma = await this.getPrisma();
       if (!prisma) throw new Error("Database client not available");
 
-      const whereClause: any = {};
+      type WhereClause = {
+        status?: BookingStatus;
+        paymentStatus?: PaymentStatus;
+        userId?: string;
+        OR?: Array<{
+          checkInDate?: { gte?: Date; lte?: Date };
+          checkOutDate?: { gte?: Date; lte?: Date };
+        }>;
+      };
+
+      const whereClause: WhereClause = {};
 
       if (params?.status) {
         whereClause.status = params.status;
@@ -413,7 +423,7 @@ export class BookingRepository {
     try {
       const booking = await this.getBookingById(id);
       return !!booking;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

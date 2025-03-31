@@ -1,21 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatDate, getStatusBadgeClass, getPaymentStatusBadgeClass } from "@/utils/format-utils";
+import { Booking } from "@/models/booking";
 
-// Define a type for serialized bookings
-export type SerializedBooking = {
-  id: string;
-  userId: string;
-  roomId: string;
+export interface SerializedBooking extends Omit<Booking, 'checkInDate' | 'checkOutDate' | 'createdAt' | 'updatedAt'> {
   checkInDate: string;
   checkOutDate: string;
-  numberOfGuests: number;
-  totalPrice: number;
-  status: string;
-  paymentStatus: string;
-  specialRequests: string | null;
   createdAt: string;
   updatedAt: string;
   user?: {
@@ -23,7 +14,7 @@ export type SerializedBooking = {
     firstName: string;
     lastName: string;
     email: string;
-  } | null;
+  };
   room?: {
     id: string;
     roomNumber: string;
@@ -34,18 +25,16 @@ export type SerializedBooking = {
       name: string;
       city: string;
       country: string;
-    } | null;
-  } | null;
-};
-
-interface ClientBookingListProps {
-  initialBookings: SerializedBooking[];
-  error?: string | null;
+    };
+  };
 }
 
-export default function ClientBookingList({ initialBookings, error: initialError }: ClientBookingListProps) {
-  const [bookings] = useState<SerializedBooking[]>(initialBookings);
-  const [error] = useState<string | null>(initialError || null);
+interface ClientBookingListProps {
+  bookings: SerializedBooking[];
+  error?: string;
+}
+
+export default function ClientBookingList({ bookings, error }: ClientBookingListProps) {
   const router = useRouter();
 
   if (error) {
@@ -118,7 +107,7 @@ export default function ClientBookingList({ initialBookings, error: initialError
               >
                 <td className="px-6 py-4">
                   <div className="font-medium text-gray-900">
-                    {booking.user && `${booking.user.firstName} ${booking.user.lastName}`}
+                    {booking.user?.firstName} {booking.user?.lastName}
                   </div>
                   <div className="text-sm text-gray-500">
                     {booking.user?.email}

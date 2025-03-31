@@ -7,13 +7,18 @@ import { updateRoomSchema } from "@/validations/room.validation";
 import { ApiResponse } from "@/utils/api-response";
 import { ValidationError, NotFoundError, AuthorizationError } from "@/errors";
 
+// Define params as a Promise type
+type Params = Promise<{ hotel_id: string; room_id: string }>;
+
 /**
  * Get a single room by ID
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { hotel_id: string; room_id: string } }
+  context: { params: Params }
 ) {
+  // Await the params
+  const params = await context.params;
   const { hotel_id, room_id } = params;
   
   return ApiResponse.handle(async () => {
@@ -34,12 +39,14 @@ export async function GET(
 }
 
 /**
- * Update a room by ID
+ * Update a room
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { hotel_id: string; room_id: string } }
+  context: { params: Params }
 ) {
+  // Await the params
+  const params = await context.params;
   const { hotel_id, room_id } = params;
   
   return ApiResponse.handle(async () => {
@@ -79,12 +86,14 @@ export async function PUT(
 }
 
 /**
- * Delete a room by ID
+ * Delete a room
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { hotel_id: string; room_id: string } }
+  context: { params: Params }
 ) {
+  // Await the params
+  const params = await context.params;
   const { hotel_id, room_id } = params;
   
   return ApiResponse.handle(async () => {

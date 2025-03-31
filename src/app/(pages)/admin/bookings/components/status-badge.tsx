@@ -1,5 +1,3 @@
-import { BookingService } from "@/services/booking.service";
-
 interface StatusBadgeProps {
   status: string;
   size?: 'sm' | 'md' | 'lg';

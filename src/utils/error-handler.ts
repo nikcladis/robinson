@@ -5,10 +5,7 @@ import {
   ValidationError,
   DatabaseError,
   NotFoundError,
-  AuthenticationError,
-  AuthorizationError,
-  ConflictError,
-  ExternalServiceError
+  ConflictError
 } from "@/errors";
 
 /**
@@ -30,12 +27,18 @@ export class ErrorHandler {
         path: e.path.join('.'),
         message: e.message
       }));
-      return new ValidationError("Validation failed", details);
+      const errorObject = { validationErrors: details };
+      return new ValidationError("Validation failed", errorObject);
     }
     
     // Handle Prisma errors
     if (error instanceof Error && error.name === 'PrismaClientKnownRequestError') {
-      const prismaError = error as any;
+      interface PrismaError extends Error {
+        code: string;
+        meta?: Record<string, unknown>;
+      }
+      
+      const prismaError = error as PrismaError;
       
       // Handle common Prisma error codes
       if (prismaError.code === 'P2002') {
@@ -122,19 +125,21 @@ export class ErrorHandler {
   static createErrorResponse(error: unknown, fallbackMessage = "An error occurred"): NextResponse {
     const normalizedError = this.normalizeError(error, fallbackMessage);
     
-    // Create a safe response object
+    // Create the response body
     const responseBody = {
       success: false,
       error: {
         message: normalizedError.message,
-        code: normalizedError.code
+        code: normalizedError.code,
+        details: undefined as unknown,
+        stack: undefined as unknown
       }
     };
     
     // Include details in development mode
     if (process.env.NODE_ENV === "development") {
-      (responseBody.error as any).details = normalizedError.details;
-      (responseBody.error as any).stack = normalizedError.stack;
+      responseBody.error.details = normalizedError.details;
+      responseBody.error.stack = normalizedError.stack;
     }
     
     return NextResponse.json(responseBody, { 

@@ -1,14 +1,14 @@
 import { Suspense } from "react";
 import EditHotelForm from "./edit/client";
+import Link from "next/link";
 
-interface HotelDetailPageProps {
-  params: {
-    hotel_id: string;
-  };
-}
+// Define params as a Promise type
+type Params = Promise<{ hotel_id: string }>;
 
-export default function HotelDetailPage({ params }: HotelDetailPageProps) {
-  const { hotel_id } = params;
+export default async function HotelDetailPage({ params }: { params: Params }) {
+  // Await the params
+  const resolvedParams = await params;
+  const hotel_id = resolvedParams.hotel_id;
 
   return (
     <div className="container mx-auto py-8 px-4 sm:px-6">
@@ -18,12 +18,12 @@ export default function HotelDetailPage({ params }: HotelDetailPageProps) {
             <h1 className="text-3xl font-bold">Edit Hotel</h1>
             <p className="text-gray-600 mt-2">Update hotel information and settings</p>
           </div>
-          <a 
+          <Link 
             href="/admin/hotels" 
             className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
           >
             Back to Hotels
-          </a>
+          </Link>
         </div>
       </div>
       

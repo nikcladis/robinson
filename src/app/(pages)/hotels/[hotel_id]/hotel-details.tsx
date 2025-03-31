@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { TransformedHotel, Room } from "@/models";
+import { TransformedHotel, Room } from "@/models/hotel";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import SignInModal from "@/shared/auth/modals/sign-in";
-import { HotelService } from "@/services/hotel.service";
+import { formatPrice, getAmenityLabel } from "@/utils/format-utils";
 
 interface HotelDetailsProps {
   hotel: TransformedHotel;
@@ -18,13 +18,9 @@ export default function HotelDetails({ hotel }: HotelDetailsProps) {
   const router = useRouter();
   const { status } = useSession();
 
-  const averageRating =
-    hotel.reviews.length > 0
-      ? (
-          hotel.reviews.reduce((acc, review) => acc + review.rating, 0) /
-          hotel.reviews.length
-        ).toFixed(1)
-      : "N/A";
+  const averageRating = hotel.reviews.reduce((acc: number, review: { rating: number }) => {
+    return acc + review.rating;
+  }, 0) / (hotel.reviews.length || 1);
 
   const handleProceedToBooking = () => {
     if (status === "authenticated" && selectedRoom) {
@@ -67,7 +63,7 @@ export default function HotelDetails({ hotel }: HotelDetailsProps) {
             <div className="flex items-center bg-blue-50 px-3 py-1 rounded-full">
               <span className="text-yellow-500 mr-1">★</span>
               <span className="font-semibold text-blue-900">
-                {averageRating}
+                {averageRating.toFixed(1)}
               </span>
               <span className="text-blue-600 ml-1">
                 ({hotel.reviews.length} reviews)
@@ -85,26 +81,13 @@ export default function HotelDetails({ hotel }: HotelDetailsProps) {
           <div className="mt-8">
             <h2 className="text-xl font-semibold mb-4">Amenities</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {hotel.amenities.map((amenity, index) => (
-                <div
+              {hotel.amenities.map((amenity: string, index: number) => (
+                <span
                   key={index}
-                  className="flex items-center space-x-2 text-gray-700"
+                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-2 mb-2"
                 >
-                  <svg
-                    className="w-5 h-5 text-blue-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  <span>{amenity}</span>
-                </div>
+                  {getAmenityLabel(amenity)}
+                </span>
               ))}
             </div>
           </div>
@@ -131,7 +114,7 @@ export default function HotelDetails({ hotel }: HotelDetailsProps) {
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold">
-                        {HotelService.formatPrice(room.price)}
+                        {formatPrice(room.price)}
                       </div>
                       <div className="text-sm text-gray-500">per night</div>
                     </div>
@@ -139,7 +122,7 @@ export default function HotelDetails({ hotel }: HotelDetailsProps) {
                   <div className="mt-4">
                     <h4 className="font-medium mb-2">Room Features:</h4>
                     <ul className="text-sm text-gray-600 space-y-1">
-                      {room.amenities.map((amenity, index) => (
+                      {room.amenities.map((amenity: string, index: number) => (
                         <li key={index} className="flex items-center">
                           <svg
                             className="w-4 h-4 text-green-500 mr-2"
@@ -154,7 +137,7 @@ export default function HotelDetails({ hotel }: HotelDetailsProps) {
                               d="M5 13l4 4L19 7"
                             />
                           </svg>
-                          {HotelService.getAmenityLabel(amenity)}
+                          {getAmenityLabel(amenity)}
                         </li>
                       ))}
                     </ul>
@@ -234,7 +217,7 @@ export default function HotelDetails({ hotel }: HotelDetailsProps) {
                 <div className="text-right">
                   <div className="text-2xl font-bold">
                     {selectedRoom &&
-                      HotelService.formatPrice(selectedRoom.price)}
+                      formatPrice(selectedRoom.price)}
                   </div>
                   <div className="text-sm text-gray-500">per night</div>
                 </div>

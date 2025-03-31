@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AdminLayout from "../layout";
-import type { Hotel } from "@/models/hotel";
+import { Hotel } from "@/models/hotel";
+import Image from "next/image";
 
 export default function HotelsManagementPage() {
   const router = useRouter();
@@ -116,15 +117,18 @@ export default function HotelsManagementPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         {hotel.imageUrl ? (
-                          <img 
-                            src={hotel.imageUrl} 
-                            alt={hotel.name}
-                            className="h-10 w-10 rounded-full object-cover mr-3"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = "https://via.placeholder.com/40?text=Hotel";
-                            }}
-                          />
+                          <div className="relative h-10 w-10 mr-3">
+                            <Image
+                              src={hotel.imageUrl} 
+                              alt={hotel.name}
+                              fill
+                              className="rounded-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = "https://via.placeholder.com/40?text=Hotel";
+                              }}
+                            />
+                          </div>
                         ) : (
                           <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center mr-3">
                             <span className="text-gray-500 text-sm">No img</span>

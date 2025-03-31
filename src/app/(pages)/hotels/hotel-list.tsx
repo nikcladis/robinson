@@ -1,46 +1,62 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Hotel } from "@/models";
+import { useState, useEffect, useCallback } from "react";
+import { Hotel } from "@/models/hotel";
 import { HotelService } from "@/services/hotel.service";
 import HotelCard from "./hotel-card";
 import HotelSkeleton from "./hotel-skeleton";
 
 const HOTELS_PER_PAGE = 6;
 
-export default function HotelList() {
-  const [hotels, setHotels] = useState<Hotel[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
+interface HotelListProps {
+  initialHotels?: Hotel[];
+  initialHasMore?: boolean;
+  error?: string;
+  featuredLimit?: number;
+}
 
-  useEffect(() => {
-    fetchHotels();
-  }, []);
+export default function HotelList({ 
+  initialHotels = [], 
+  initialHasMore = false, 
+  error: initialError,
+  featuredLimit
+}: HotelListProps) {
+  const [hotels, setHotels] = useState<Hotel[]>(initialHotels);
+  const [loading, setLoading] = useState(!initialHotels.length);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [error, setError] = useState<string | null>(initialError || null);
 
-  const fetchHotels = async (offset: number = 0) => {
+  // Fetch additional hotels - wrapped in useCallback
+  const fetchHotels = useCallback(async (offset: number = 0) => {
     try {
+      setLoading(true);
+      const limit = featuredLimit || HOTELS_PER_PAGE;
       const data = await HotelService.getAllHotels({
-        limit: HOTELS_PER_PAGE,
+        limit,
         offset,
       });
 
-      if (offset === 0) {
-        setHotels(data);
-      } else {
-        setHotels((prev) => [...prev, ...data]);
-      }
+      // Update the list of hotels
+      setHotels((prev) => offset === 0 ? data : [...prev, ...data]);
 
-      setHasMore(data.length === HOTELS_PER_PAGE);
+      // Check if there are more hotels to load
+      setHasMore(!featuredLimit && data.length === limit);
     } catch (err) {
+      console.error("Failed to fetch hotels:", err);
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
-  };
+  }, [featuredLimit]);
+
+  // Fetch hotels on component mount if no initial hotels provided
+  useEffect(() => {
+    if (initialHotels.length === 0 && !initialError) {
+      fetchHotels(0);
+    }
+  }, [initialHotels.length, initialError, fetchHotels]);
 
   const handleLoadMore = () => {
-    setLoading(true);
     fetchHotels(hotels.length);
   };
 
@@ -49,7 +65,7 @@ export default function HotelList() {
       <div className="p-4 bg-white rounded-lg shadow-sm">
         <div className="h-8 w-48 bg-gray-300 rounded mb-6 animate-pulse" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
+          {[...Array(featuredLimit || 6)].map((_, i) => (
             <HotelSkeleton key={i} />
           ))}
         </div>
@@ -63,9 +79,9 @@ export default function HotelList() {
 
   return (
     <div className="p-4 bg-white rounded-lg shadow-sm">
-      <h1 className="text-2xl font-bold mb-6">Our Hotels</h1>
+      <h1 className="text-2xl font-bold mb-6">{featuredLimit ? 'Featured Hotels' : 'Our Hotels'}</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {hotels.map((hotel) => (
+        {hotels && hotels.map((hotel: Hotel) => (
           <HotelCard key={hotel.id} hotel={hotel} />
         ))}
       </div>

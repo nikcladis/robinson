@@ -4,7 +4,7 @@ interface BookingActionsProps {
   bookingId: string;
   status: string;
   isUpdating: boolean;
-  onUpdate: (id: string, status: string) => Promise<any>;
+  onUpdate: (id: string, status: string) => Promise<boolean | void>;
   onDelete: (id: string) => Promise<boolean>;
   onView: (id: string) => void;
   showViewButton?: boolean;

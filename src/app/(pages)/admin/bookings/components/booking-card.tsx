@@ -1,4 +1,4 @@
-import { Booking } from "@/models/booking.model";
+import { Booking } from "@/models/booking.d";
 import StatusBadge from "./status-badge";
 import BookingActions from "./booking-actions";
 import { formatDate } from "@/utils/date-utils";
@@ -6,7 +6,7 @@ import { formatDate } from "@/utils/date-utils";
 interface BookingCardProps {
   booking: Booking;
   isUpdating: boolean;
-  onUpdate: (id: string, status: string) => Promise<any>;
+  onUpdate: (id: string, status: string) => Promise<boolean | void>;
   onDelete: (id: string) => Promise<boolean>;
 }
 

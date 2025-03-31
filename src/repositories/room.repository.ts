@@ -159,10 +159,10 @@ export class RoomRepository {
       }
       
       // Handle roomType specifically if it exists in the data
-      const updateData: any = { ...data };
-      if (data.roomType) {
-        updateData.roomType = data.roomType as RoomType;
-      }
+      const updateData = { 
+        ...data,
+        roomType: data.roomType ? data.roomType as RoomType : undefined
+      };
       
       return await prisma.room.update({
         where: { id },
@@ -222,7 +222,7 @@ export class RoomRepository {
     try {
       const room = await this.getRoomById(id);
       return !!room;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

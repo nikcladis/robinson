@@ -8,7 +8,7 @@ export interface ApiSuccessResponse<T> {
   success: true;
   data: T;
   meta?: {
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -19,7 +19,7 @@ export class ApiResponse {
   /**
    * Creates a success response
    */
-  static success<T>(data: T, status = 200, meta?: any): NextResponse {
+  static success<T>(data: T, status = 200, meta?: Record<string, unknown>): NextResponse {
     const body: ApiSuccessResponse<T> = {
       success: true,
       data
@@ -35,7 +35,7 @@ export class ApiResponse {
   /**
    * Creates a success response for created resources
    */
-  static created<T>(data: T, meta?: any): NextResponse {
+  static created<T>(data: T, meta?: Record<string, unknown>): NextResponse {
     return this.success(data, 201, meta);
   }
   
