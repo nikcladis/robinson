@@ -1,5 +1,3 @@
-"use server";
-
 import { requireAdmin } from "@/middleware";
 import { BookingController } from "@/controllers/booking.controller";
 import { ApiResponse } from "@/utils/api-response";

@@ -1,11 +1,10 @@
-"use server";
-
 import { NextRequest } from "next/server";
 import { RoomController } from "@/controllers/room.controller";
 import { requireAdmin } from "@/middleware";
 import { updateRoomSchema } from "@/validations/room.validation";
 import { ApiResponse } from "@/utils/api-response";
 import { ValidationError, NotFoundError, AuthorizationError } from "@/errors";
+import { Room } from "@/models/hotel";
 
 // Define Params type as a Promise
 type Params = Promise<{ room_id: string }>;
@@ -30,32 +29,23 @@ export async function GET(
       throw new NotFoundError(`Room with ID ${room_id} not found`);
     }
 
-    // Ensure hotel data is included in the response
-    // If for some reason the hotel relation is missing, prevent API from failing
-    interface RoomWithHotel {
-      id: string;
-      roomNumber: string;
-      roomType: string;
-      price: number;
-      capacity: number;
-      amenities: string[];
-      hotel?: {
-        id: string;
-        name: string;
-        city: string;
-        country: string;
-      };
-    }
-
-    const roomWithHotel = room as RoomWithHotel;
+    const roomWithHotel = room as Room;
     if (!roomWithHotel.hotel) {
       console.error(`Room ${room_id} found but hotel relation is missing`);
-      // Add a placeholder hotel to the response
+      // Add a placeholder hotel to the response, ensuring all required fields are present
       roomWithHotel.hotel = {
         id: "unknown",
         name: "Hotel Information Unavailable",
         city: "Unknown",
-        country: "Unknown"
+        country: "Unknown",
+        address: "Address Unavailable",
+        postalCode: "",
+        description: "Description Unavailable",
+        imageUrl: "",
+        starRating: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        amenities: [],
       };
     }
 

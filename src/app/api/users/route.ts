@@ -1,9 +1,8 @@
-"use server";
-
 import { NextRequest, NextResponse } from "next/server";
 import { getPrismaClientSync } from "@/helpers/prisma";
 import * as bcrypt from "bcrypt";
 import { z } from "zod";
+import { corsHeaders } from "@/config/cors"; // Import centralized headers
 
 // Define the user registration schema for validation
 const userSchema = z.object({
@@ -22,7 +21,10 @@ export async function POST(request: NextRequest) {
     if (!prisma) {
       return NextResponse.json(
         { error: "Database connection error" },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: corsHeaders
+        }
       );
     }
     
@@ -33,7 +35,10 @@ export async function POST(request: NextRequest) {
     if (!validation.success) {
       return NextResponse.json(
         { error: validation.error.errors[0].message },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -47,7 +52,10 @@ export async function POST(request: NextRequest) {
     if (existingUser) {
       return NextResponse.json(
         { error: "User with this email already exists" },
-        { status: 409 }
+        { 
+          status: 409,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -77,13 +85,19 @@ export async function POST(request: NextRequest) {
         phoneNumber: user.phoneNumber,
         role: user.role,
       },
-      { status: 201 }
+      { 
+        status: 201,
+        headers: corsHeaders
+      }
     );
   } catch (error) {
     console.error("Error registering user:", error);
     return NextResponse.json(
       { error: "An error occurred during registration" },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: corsHeaders
+      }
     );
   }
 }

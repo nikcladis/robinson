@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ErrorHandler } from "./error-handler";
+import { corsHeaders } from "@/config/cors"; // Import centralized headers
 
 /**
  * Standard success response format for API endpoints
@@ -29,7 +30,8 @@ export class ApiResponse {
       body.meta = meta;
     }
     
-    return NextResponse.json(body, { status });
+    // Use centralized CORS headers
+    return NextResponse.json(body, { status, headers: corsHeaders });
   }
   
   /**
@@ -43,7 +45,8 @@ export class ApiResponse {
    * Creates a success response with no content
    */
   static noContent(): NextResponse {
-    return new NextResponse(null, { status: 204 });
+    // Use centralized CORS headers
+    return new NextResponse(null, { status: 204, headers: corsHeaders });
   }
   
   /**

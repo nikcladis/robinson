@@ -1,10 +1,9 @@
-"use server";
-
 import { NextRequest, NextResponse } from "next/server";
 import { getPrismaClientSync } from "@/helpers/prisma";
 import { requireAdmin } from "@/middleware";
 import { BookingStatus } from "@prisma/client";
 import { startOfWeek, startOfMonth, startOfYear, subMonths } from 'date-fns';
+import { corsHeaders } from "@/config/cors"; // Import centralized headers
 
 /**
  * GET handler for retrieving report data (admin only)
@@ -19,7 +18,10 @@ export async function GET(request: NextRequest) {
     if (!prisma) {
       return NextResponse.json(
         { error: "Database connection error" },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -240,12 +242,13 @@ export async function GET(request: NextRequest) {
       topHotels
     };
 
-    return NextResponse.json(reportData);
+    return NextResponse.json(reportData, { headers: corsHeaders });
+
   } catch (error) {
     console.error("Error generating reports:", error);
     return NextResponse.json(
       { error: "Failed to generate reports" },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 } 

@@ -7,6 +7,7 @@ import {
   NotFoundError,
   ConflictError
 } from "@/errors";
+import { corsHeaders } from "@/config/cors"; // Import centralized headers
 
 /**
  * ErrorHandler utility for standardized error handling across the application
@@ -142,8 +143,10 @@ export class ErrorHandler {
       responseBody.error.stack = normalizedError.stack;
     }
     
+    // Use centralized CORS headers
     return NextResponse.json(responseBody, { 
-      status: normalizedError.statusCode 
+      status: normalizedError.statusCode,
+      headers: corsHeaders // Use imported headers
     });
   }
   

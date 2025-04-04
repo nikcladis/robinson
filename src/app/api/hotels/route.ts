@@ -1,8 +1,7 @@
-"use server";
-
 import { NextRequest, NextResponse } from "next/server";
 import { HotelController } from "@/controllers/hotel.controller";
 import { requireAdmin, handleError } from "@/middleware";
+import { corsHeaders } from "@/config/cors";
 import {
   searchParamsSchema,
   createHotelSchema,
@@ -40,7 +39,9 @@ export async function GET(request: NextRequest) {
     try {
       const hotels = await HotelController.getAllHotels(params);
       console.log(`API GET /api/hotels returning ${hotels.length} hotels`);
-      return NextResponse.json(hotels);
+      return NextResponse.json(hotels, {
+        headers: corsHeaders,
+      });
     } catch (controllerError) {
       console.error(
         "Controller error in API GET /api/hotels:",
@@ -85,7 +86,10 @@ export async function POST(request: NextRequest) {
         `API POST /api/hotels - Hotel created successfully with ID: ${hotel.id}`
       );
 
-      return NextResponse.json(hotel, { status: 201 });
+      return NextResponse.json(hotel, {
+        status: 201,
+        headers: corsHeaders,
+      });
     } catch (validationError) {
       console.warn("API POST /api/hotels - Validation error:", validationError);
       return handleError(validationError, "Invalid hotel data");

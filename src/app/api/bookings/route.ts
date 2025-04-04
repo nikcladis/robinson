@@ -1,9 +1,8 @@
-"use server";
-
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { getAuthOptions } from "@/app/api/auth/[...nextauth]/options";
 import { BookingController } from "@/controllers/booking.controller";
+import { corsHeaders } from "@/config/cors"; // Import centralized headers
 
 /**
  * GET handler for retrieving user's bookings
@@ -14,16 +13,24 @@ export async function GET() {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return new NextResponse("Unauthorized", { 
+        status: 401,
+        headers: corsHeaders
+      });
     }
 
     const bookings = await BookingController.getUserBookings(session.user.id);
-    return NextResponse.json(bookings);
+    return NextResponse.json(bookings, {
+      headers: corsHeaders
+    });
   } catch (error) {
     console.error("Error fetching bookings:", error);
     return NextResponse.json(
       { error: "Failed to fetch bookings" },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: corsHeaders
+      }
     );
   }
 }
@@ -37,7 +44,10 @@ export async function POST(request: Request) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return new NextResponse("Unauthorized", { 
+        status: 401,
+        headers: corsHeaders
+      });
     }
 
     const body = await request.json();
@@ -70,12 +80,17 @@ export async function POST(request: Request) {
     
     console.log("Booking created successfully:", safeBooking.id);
 
-    return NextResponse.json(safeBooking);
+    return NextResponse.json(safeBooking, {
+      headers: corsHeaders
+    });
   } catch (error) {
     console.error("[BOOKING_POST]", error);
     return new NextResponse(
       error instanceof Error ? error.message : "Internal error",
-      { status: error instanceof Error ? 400 : 500 }
+      { 
+        status: error instanceof Error ? 400 : 500,
+        headers: corsHeaders
+      }
     );
   }
 }

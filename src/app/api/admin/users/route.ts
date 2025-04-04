@@ -1,8 +1,7 @@
-"use server";
-
 import { NextResponse } from "next/server";
 import { getPrismaClientSync } from "@/helpers/prisma";
 import { requireAdmin } from "@/middleware";
+import { corsHeaders } from "@/config/cors"; // Import centralized headers
 
 /**
  * GET handler for retrieving all users (admin only)
@@ -17,7 +16,10 @@ export async function GET() {
     if (!prisma) {
       return NextResponse.json(
         { error: "Database connection error" },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -35,12 +37,13 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json(users);
+    return NextResponse.json(users, { headers: corsHeaders });
+
   } catch (error) {
     console.error("Error fetching users:", error);
     return NextResponse.json(
       { error: "Failed to fetch users" },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 } 
